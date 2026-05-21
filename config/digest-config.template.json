@@ -1,0 +1,40 @@
+{
+  "version": "1.2.0",
+  "installed_at": null,
+  "destination": {
+    "type": null,
+    "folder": null,
+    "notion_api_key": null,
+    "notion_database_id": null,
+    "notion_parent_page_id": null
+  },
+  "window_days": 7,
+  "timezone": "America/New_York",
+  "contexts": [
+    "Client work",
+    "Internal ops",
+    "Strategic / planning",
+    "Sales / prospecting",
+    "Personal"
+  ],
+  "default_owner": "me",
+  "skip_recordings_under_minutes": 2,
+  "dedup": {
+    "enabled": true,
+    "state_file": "~/.claude/skills/meetings-digest/.processed-file-ids.json",
+    "retention_days": 90
+  },
+  "schedule": {
+    "label": "friday-rollup",
+    "day_of_week": 5,
+    "hour": 17,
+    "minute": 0
+  },
+  "weekly_rollup": {
+    "enabled": true,
+    "include_focus_picks": true,
+    "max_focus_picks": 5,
+    "carry_over_warn_days": 14,
+    "carry_over_loud_days": 21
+  }
+}
