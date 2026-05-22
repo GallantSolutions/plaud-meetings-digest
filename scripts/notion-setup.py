@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-notion-setup.py — Creates the Plaud Meeting Action Items database in Notion.
+notion-setup.py — Creates the "Plaud Meetings" database in Notion.
+
+v2.0.0 schema change: each ROW is now ONE MEETING (not one action item).
+The full recap (action items, decisions, open questions, quotes) lives in
+the page body of each row.
 
 Called by install.sh when the user picks the Notion output destination.
 Idempotent: if a database with the same name already exists under the parent
@@ -11,20 +15,18 @@ Usage:
                             --parent-page <PARENT_PAGE_ID> \\
                             --output <PATH_TO_WRITE_DB_ID>
 
-The Notion token must have access to the parent page (operator/recipient
-explicitly shared the integration with the page before running install.sh).
-
-Database schema:
-    - Action        (title)
-    - Context       (select)
-    - Owner         (rich_text)
-    - Due           (date)
-    - Status        (select: Open, In progress, Done, Blocked, Dropped)
-    - Priority      (select: High, Medium, Low)
-    - Source        (rich_text)
-    - Source date   (date)
-    - Week          (rich_text)
-    - Created       (created_time)
+Database schema (one row per meeting recording):
+    - Title          (title)        — meeting title (e.g., "Kingsway Pharma w/ John Smith")
+    - Meeting Type   (select)       — Kingsway Pharma / Church / Personal / Uncategorized
+    - Date           (date)         — when the meeting was recorded
+    - Duration       (number)       — minutes
+    - Speakers       (rich_text)    — comma-separated names
+    - Action Items   (number)       — count of action items extracted
+    - Decisions      (number)       — count of decisions
+    - Open Questions (number)       — count
+    - Status         (select)       — New / Reviewed / Archived
+    - Source File ID (rich_text)    — Plaud's recording ID (for dedup audit)
+    - Created        (created_time)
 """
 
 from __future__ import annotations
@@ -42,7 +44,7 @@ except ImportError:
 
 NOTION_VERSION = "2022-06-28"
 NOTION_API = "https://api.notion.com/v1"
-DB_NAME = "Plaud Meeting Action Items"
+DB_NAME = "Plaud Meetings"
 
 
 def headers(token: str) -> dict[str, str]:
@@ -54,7 +56,7 @@ def headers(token: str) -> dict[str, str]:
 
 
 def search_existing_database(token: str, parent_page_id: str) -> str | None:
-    """Look for an existing database with the standard name under the parent page."""
+    """Look for an existing database with the canonical name under the parent page."""
     resp = requests.post(
         f"{NOTION_API}/search",
         headers=headers(token),
@@ -69,8 +71,8 @@ def search_existing_database(token: str, parent_page_id: str) -> str | None:
         return None
     for result in resp.json().get("results", []):
         title_arr = result.get("title", [])
-        title_text = "".join(t.get("plain_text", "") for t in title_arr)
-        if title_text.strip() == DB_NAME:
+        title_text = "".join(t.get("plain_text", "") for t in title_arr).strip()
+        if title_text == DB_NAME:
             parent = result.get("parent", {})
             if parent.get("type") == "page_id":
                 if parent["page_id"].replace("-", "") == parent_page_id.replace("-", ""):
@@ -79,49 +81,39 @@ def search_existing_database(token: str, parent_page_id: str) -> str | None:
 
 
 def create_database(token: str, parent_page_id: str) -> str:
-    """Create the database under the parent page."""
+    """Create the v2.0.0 'Plaud Meetings' database under the parent page."""
     payload = {
         "parent": {"type": "page_id", "page_id": parent_page_id},
         "title": [{"type": "text", "text": {"content": DB_NAME}}],
         "properties": {
-            "Action": {"title": {}},
-            "Context": {
+            "Title":         {"title": {}},
+            "Meeting Type": {
                 "select": {
                     "options": [
-                        {"name": "RANK",         "color": "blue"},
-                        {"name": "Client work",  "color": "green"},
-                        {"name": "Portfolio",    "color": "purple"},
-                        {"name": "Internal ops", "color": "yellow"},
-                        {"name": "Personal",     "color": "gray"},
+                        {"name": "Kingsway Pharma", "color": "blue"},
+                        {"name": "Church",          "color": "purple"},
+                        {"name": "Personal",        "color": "gray"},
+                        {"name": "Uncategorized",   "color": "default"},
                     ]
                 }
             },
-            "Owner":       {"rich_text": {}},
-            "Due":         {"date": {}},
+            "Date":           {"date": {}},
+            "Duration":       {"number": {"format": "number"}},
+            "Speakers":       {"rich_text": {}},
+            "Action Items":   {"number": {"format": "number"}},
+            "Decisions":      {"number": {"format": "number"}},
+            "Open Questions": {"number": {"format": "number"}},
             "Status": {
                 "select": {
                     "options": [
-                        {"name": "Open",        "color": "default"},
-                        {"name": "In progress", "color": "blue"},
-                        {"name": "Done",        "color": "green"},
-                        {"name": "Blocked",     "color": "red"},
-                        {"name": "Dropped",     "color": "gray"},
+                        {"name": "New",      "color": "yellow"},
+                        {"name": "Reviewed", "color": "green"},
+                        {"name": "Archived", "color": "gray"},
                     ]
                 }
             },
-            "Priority": {
-                "select": {
-                    "options": [
-                        {"name": "High",   "color": "red"},
-                        {"name": "Medium", "color": "yellow"},
-                        {"name": "Low",    "color": "gray"},
-                    ]
-                }
-            },
-            "Source":      {"rich_text": {}},
-            "Source date": {"date": {}},
-            "Week":        {"rich_text": {}},
-            "Created":     {"created_time": {}},
+            "Source File ID": {"rich_text": {}},
+            "Created":        {"created_time": {}},
         },
     }
 
@@ -152,13 +144,11 @@ def main() -> int:
     parser.add_argument("--output", required=True, help="Path to write the resulting DB ID")
     args = parser.parse_args()
 
-    # Normalize parent page ID (Notion accepts both with and without dashes; we strip)
     parent_id = args.parent_page.replace("-", "").strip()
     if len(parent_id) != 32:
         print(f"ERROR: parent page ID must be 32 hex chars, got {len(parent_id)}", file=sys.stderr)
         return 1
 
-    # Search first (idempotent)
     existing = search_existing_database(args.token, parent_id)
     if existing:
         print(f"Found existing database with ID {existing[:8]}... (reusing)")
@@ -166,8 +156,7 @@ def main() -> int:
             f.write(existing.replace("-", ""))
         return 0
 
-    # Create
-    print("Creating new Notion database...")
+    print("Creating new Notion database 'Plaud Meetings'...")
     db_id = create_database(args.token, parent_id)
     db_id_clean = db_id.replace("-", "")
 

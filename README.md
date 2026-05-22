@@ -4,8 +4,8 @@ Turn your Plaud recordings into routed, structured action items — automaticall
 
 | Platform | Default destination | Per-meeting output | Weekly rollup output |
 |---|---|---|---|
-| **Windows** | OneDrive folders | Word `.docx` in `OneDrive\Plaud Meetings\<meeting-type>\` | Word `.docx` in `<meeting-type>\_weekly\` |
-| **Mac**     | Notion             | Database rows tagged by meeting type | Notion page under the parent page |
+| **Windows** | OneDrive folders | One Word `.docx` per meeting in `OneDrive\Plaud Meetings\<meeting-type>\` | Word `.docx` in `<meeting-type>\_weekly\` |
+| **Mac**     | Notion             | One row per meeting in "Plaud Meetings" DB (recap in page body, action items as checkboxes) | Notion page under the parent page |
 
 Built by **Gallant**.
 
@@ -43,8 +43,8 @@ Three scheduled jobs run on their own:
 - **5:30 PM Friday** — synthesize the weekly rollup (Kingsway Pharma only)
 
 Outputs land in:
-- **Windows**: `<OneDrive>\Plaud Meetings\<meeting-type>\<YYYY-MM-DD HHMM> <title>.docx`
-- **Mac**: your Notion database (per action item) and a weekly rollup page under the parent page
+- **Windows**: `<OneDrive>\Plaud Meetings\<meeting-type>\<YYYY-MM-DD HHMM> <title>.docx` — one `.docx` per meeting; action items rendered as ☐ checklist items
+- **Mac**: one row per meeting in your "Plaud Meetings" Notion database; the row's page body has the full recap with action items as interactive checkboxes you can tick off as you complete them. The Friday rollup lands as a separate page under the same parent page.
 
 ### Manual
 
@@ -78,7 +78,8 @@ For anything else: contact the Gallant operator who installed this.
 
 ## Versions
 
-- **v2.0.0** — Cross-platform (Windows + Mac). Meeting-type routing from spoken opening line. Twice-daily ingestion (12:30 PM + 5:00 PM) + Friday 5:30 PM weekly rollup. Windows: Word docs in OneDrive folders. Mac: Notion (unchanged from v1.x). Weekly rollup filters to meeting types flagged `include_in_weekly_rollup: true` (default Kingsway Pharma only).
+- **v2.1.0** — One Notion row per MEETING (was one row per action item). Action items render as interactive Notion checkboxes you can tick off. Word docs use ☐ ballot-box characters for the same visual checklist UX. Claude Code Windows install fixed (correct package name + Anthropic's official PowerShell installer).
+- **v2.0.0** — Cross-platform (Windows + Mac). Meeting-type routing from spoken opening line. Twice-daily ingestion (12:30 PM + 5:00 PM) + Friday 5:30 PM weekly rollup. Windows: Word docs in OneDrive folders. Mac: Notion. Weekly rollup filters to meeting types flagged `include_in_weekly_rollup: true` (default Kingsway Pharma only).
 - **v1.2.0** — Mac, Notion-only. Friday 5:00 PM weekly rollup chained as `/meetings-digest --days 7` → `/weekly-rollup`.
 - **v1.1.0** — Mac, Notion-only. Twice-daily schedule + dedup.
 - **v1.0.0** — Mac, Notion-only. Friday rollup.

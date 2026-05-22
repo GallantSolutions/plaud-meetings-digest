@@ -159,32 +159,42 @@ The script computes the output path automatically: `{onedrive_folder}/Plaud Meet
 
 ### Mode B: `notion` (Mac default)
 
-For each action item extracted, build a JSON array entry matching the `notion-write.py` input shape:
+**v2.0.0 shape: one Notion database row per MEETING (not per action item).** The full recap goes in the page body of that row. Action items render as Notion checkboxes (`to_do` blocks) so the client can tick them off as they complete them.
+
+Build a JSON object matching the SAME shape `docx_writer.py` accepts (one meeting per invocation):
 
 ```json
-[
-  {
-    "action": "Send Bristol the audit PDF",
-    "owner": "Garrett",
-    "context": "Kingsway Pharma",         // we use the routed meeting_type as the Notion Context property
-    "due": "2026-05-23",
-    "source_recording": "Kingsway Pharma w/ John Smith",
-    "source_recorded_at": "2026-05-22T14:30:00-04:00",
-    "source_timestamp": "00:23:15",
-    "priority": "Medium"
-  }
-]
+{
+  "meeting_type": "Kingsway Pharma",
+  "recording_title": "Kingsway Pharma w/ John Smith",
+  "recorded_at": "2026-05-22T14:30:00-04:00",
+  "duration_minutes": 47.3,
+  "speakers": ["Garrett", "John Smith"],
+  "source_file_id": "rec_abc123",
+  "transcript_excerpt": "...",
+  "action_items": [...],
+  "decisions": [...],
+  "open_questions": [...],
+  "notable_quotes": [...]
+}
 ```
 
-Write the array to a tempfile and invoke:
+Write to a tempfile and invoke:
 
 ```bash
-python3 ~/.claude/skills/meetings-digest/scripts/notion-write.py --action-items /tmp/items-<batch>.json
+python3 ~/.claude/skills/meetings-digest/scripts/notion-write.py --input /tmp/meeting-<file_id>.json
 ```
 
-The Notion Context property doubles as the meeting-type tag — filtering for `Context = Kingsway Pharma` produces the same scoping that the Windows OneDrive folder gives.
+The helper creates one row in the "Plaud Meetings" database with these properties: `Title`, `Meeting Type` (the routed folder name), `Date`, `Duration`, `Speakers`, `Action Items` (count), `Decisions` (count), `Open Questions` (count), `Status` (defaults to "New"), `Source File ID`. The page body of the row contains:
 
-For decisions / open questions / notable quotes in Notion mode, write a single page per recording via `notion-page-write.py` (titled `<date> — <recording-title>`) under the same parent page. Link the action-item rows back to it via a `Source` rich-text field. (Or skip the per-recording page and put decisions/questions only in the rollup — operator preference; default: skip per-recording page in Notion mode, only the rollup carries them.)
+- Metadata header (date · duration · speakers · meeting type)
+- **Action items** section (each item is a `to_do` block — interactive checkbox)
+- **Decisions made** section (bulleted)
+- **Open questions** section (bulleted)
+- **Notable quotes** section (quote blocks)
+- Footer with generation timestamp + Plaud file ID
+
+The client can filter the DB by `Meeting Type = Kingsway Pharma` to see Kingsway recaps; or sort by `Date`; or filter `Status = New` to find unreviewed meetings. The weekly rollup queries the LOCAL state JSONL (not the Notion DB) so synthesis stays fast and is destination-agnostic.
 
 ### Mode C: `folder` (universal fallback)
 

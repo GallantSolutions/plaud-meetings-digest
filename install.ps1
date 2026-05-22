@@ -103,22 +103,28 @@ if (-not $pythonOk) {
     }
 }
 
-# Claude Code CLI
+# Claude Code CLI — preferred: official Anthropic PowerShell installer (auto-updates).
+# Fallback: winget Anthropic.ClaudeCode (does not auto-update).
 $claudeOk = $false
 if (Get-Command claude -ErrorAction SilentlyContinue) {
     Write-Ok "Claude Code: $(claude --version 2>&1 | Select-Object -First 1)"
     $claudeOk = $true
 }
 if (-not $claudeOk) {
-    Write-Step "Installing Claude Code via winget..."
-    # Try the canonical package name. If it doesn't exist, surface the download link.
-    $cc = winget install --id Anthropic.Claude -e --silent --accept-package-agreements --accept-source-agreements 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warn "winget package 'Anthropic.Claude' not available."
-        Write-Warn "Download the Claude Code Windows installer manually from: https://claude.ai/code/install"
-        Write-Warn "Install it, then re-run install.ps1."
-        exit 1
+    Write-Step "Installing Claude Code via Anthropic's official PowerShell installer..."
+    try {
+        $installer = Invoke-RestMethod -Uri 'https://claude.ai/install.ps1' -UseBasicParsing
+        Invoke-Expression $installer
+    } catch {
+        Write-Warn "Official installer failed: $($_.Exception.Message)"
+        Write-Step "Falling back to winget (Anthropic.ClaudeCode)..."
+        winget install --id Anthropic.ClaudeCode -e --silent --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "Both install methods failed. Try the manual installer at https://code.claude.com/docs/en/setup"
+            exit 1
+        }
     }
+    # Refresh PATH for current session
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     if (Get-Command claude -ErrorAction SilentlyContinue) {
         Write-Ok "Claude Code installed: $(claude --version 2>&1 | Select-Object -First 1)"

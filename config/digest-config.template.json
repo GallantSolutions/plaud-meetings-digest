@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "installed_at": null,
   "platform": null,
   "destination": {
@@ -14,9 +14,21 @@
     "enabled": true,
     "scan_first_seconds": 30,
     "types": [
-      { "keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "include_in_weekly_rollup": true  },
-      { "keyword": "Church",          "folder": "Church",          "include_in_weekly_rollup": false },
-      { "keyword": "Personal",        "folder": "Personal",        "include_in_weekly_rollup": false }
+      {
+        "keyword": "Kingsway Pharma",
+        "folder": "Kingsway Pharma",
+        "include_in_weekly_rollup": true
+      },
+      {
+        "keyword": "Church",
+        "folder": "Church",
+        "include_in_weekly_rollup": false
+      },
+      {
+        "keyword": "Personal",
+        "folder": "Personal",
+        "include_in_weekly_rollup": false
+      }
     ],
     "fallback_folder": "Uncategorized"
   },
@@ -44,8 +56,18 @@
     "carry_over_window_days": 30
   },
   "schedule": {
-    "lunch":  { "hour": 12, "minute": 30 },
-    "eod":    { "hour": 17, "minute":  0 },
-    "rollup": { "day_of_week": 5, "hour": 17, "minute": 30 }
+    "lunch": {
+      "hour": 12,
+      "minute": 30
+    },
+    "eod": {
+      "hour": 17,
+      "minute": 0
+    },
+    "rollup": {
+      "day_of_week": 5,
+      "hour": 17,
+      "minute": 30
+    }
   }
 }

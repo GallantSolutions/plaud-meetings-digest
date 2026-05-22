@@ -101,12 +101,14 @@ def write_docx(meeting: dict[str, Any], output_path: Path) -> None:
 
     doc.add_paragraph()  # spacing
 
-    # ---- Action items ----
+    # ---- Action items (☐ prefix so it visually reads as a checklist) ----
     doc.add_heading("Action items", level=2)
     items = meeting.get("action_items") or []
     if items:
         for item in items:
             p = doc.add_paragraph(style="List Bullet")
+            box = p.add_run("☐ ")
+            box.font.size = Pt(11)
             r = p.add_run(item.get("action", "(no text)"))
             r.bold = True
             # Owner / due / priority on second line
