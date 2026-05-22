@@ -156,33 +156,42 @@ fi
 printf "\n"
 say "Step 3/6 — Installing Python dependencies (requests)"
 
-if python3 -c "import requests" &>/dev/null; then
-  ok "requests already installed"
-else
-  if python3 -m pip install --quiet --user requests; then
-    ok "requests installed"
-  elif python3 -m pip install --quiet --user --break-system-packages requests; then
-    ok "requests installed (with --break-system-packages)"
+install_python_pkg() {
+  local pkg="$1"
+  if python3 -c "import $2" &>/dev/null; then
+    ok "$pkg already installed"
+    return
+  fi
+  if python3 -m pip install --quiet --user "$pkg"; then
+    ok "$pkg installed"
+  elif python3 -m pip install --quiet --user --break-system-packages "$pkg"; then
+    ok "$pkg installed (with --break-system-packages)"
   else
-    err "Could not install requests. Try manually: python3 -m pip install requests"
+    err "Could not install $pkg. Try manually: python3 -m pip install $pkg"
     exit 1
   fi
-fi
+}
+
+install_python_pkg "requests"     "requests"
+install_python_pkg "python-docx"  "docx"
 
 # ============================================================================
-# Step 4 — Configure output destination
+# Step 4 — Configure output destination + meeting routing
 # ============================================================================
 printf "\n"
-say "Step 4/6 — Choose output destination"
+say "Step 4/7 — Choose output destination"
 printf "\n"
-printf "Where should weekly meeting digests be written?\n\n"
-printf "  %b1)%b Folder — markdown files at ~/Plaud-Digests/<week>.md (no setup, opens in any editor)\n" "$BOLD" "$NC"
-printf "  %b2)%b Notion — action items into a Notion database (you'll provide API key + page ID)\n\n" "$BOLD" "$NC"
+printf "Where should meeting outputs be written? (Mac default is Notion.)\n\n"
+printf "  %b1)%b Notion — action items into a Notion database (recommended on Mac)\n" "$BOLD" "$NC"
+printf "  %b2)%b Folder — markdown files at ~/Plaud-Digests/<week>.md (no setup, universal fallback)\n\n" "$BOLD" "$NC"
 
 DEST_CHOICE=""
 while [[ "$DEST_CHOICE" != "1" && "$DEST_CHOICE" != "2" ]]; do
-  read -p "Choice [1 or 2]: " DEST_CHOICE
+  read -p "Choice [1 or 2, default 1]: " DEST_CHOICE
+  DEST_CHOICE="${DEST_CHOICE:-1}"
 done
+# Swap so that 1 = notion, 2 = folder (matches the prompt order)
+if [[ "$DEST_CHOICE" == "1" ]]; then DEST_CHOICE="notion"; else DEST_CHOICE="folder"; fi
 
 DEST_TYPE=""
 DEST_FOLDER=""
@@ -190,7 +199,7 @@ NOTION_API_KEY=""
 NOTION_DATABASE_ID=""
 NOTION_PARENT_PAGE_ID=""
 
-if [[ "$DEST_CHOICE" == "1" ]]; then
+if [[ "$DEST_CHOICE" == "folder" ]]; then
   DEST_TYPE="folder"
   printf "\n"
   read -p "Folder path [default ~/Plaud-Digests]: " DEST_FOLDER
@@ -233,10 +242,56 @@ else
 fi
 
 # ============================================================================
-# Step 5 — Install skills + scripts + config
+# Step 5 — Meeting routing
 # ============================================================================
 printf "\n"
-say "Step 5/6 — Installing skills into Claude Code"
+say "Step 5/7 — Configure meeting routing"
+printf "\n"
+printf "When the client starts each Plaud recording, they state the meeting type\n"
+printf "(e.g., 'Kingsway Pharma meeting with John Smith'). The skill matches the\n"
+printf "spoken opening line against keywords to route to the right folder/group.\n\n"
+printf "Default meeting types:\n"
+printf "  • Kingsway Pharma   → folder 'Kingsway Pharma'   → INCLUDED in Friday rollup\n"
+printf "  • Church            → folder 'Church'            → excluded from rollup\n"
+printf "  • Personal          → folder 'Personal'          → excluded from rollup\n\n"
+read -p "Use these defaults? [Y/n]: " ROUTING_CHOICE
+ROUTING_CHOICE="${ROUTING_CHOICE:-Y}"
+
+ROUTING_JSON='[
+  { "keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "include_in_weekly_rollup": true },
+  { "keyword": "Church",          "folder": "Church",          "include_in_weekly_rollup": false },
+  { "keyword": "Personal",        "folder": "Personal",        "include_in_weekly_rollup": false }
+]'
+
+if [[ "$ROUTING_CHOICE" =~ ^[Nn]$ ]]; then
+  printf "\nEnter meeting types one per line: keyword|folder|include_in_rollup (yes/no)\n"
+  printf "Example: Kingsway Pharma|Kingsway Pharma|yes\n"
+  printf "Blank line to finish.\n\n"
+  ITEMS="["
+  FIRST=1
+  while true; do
+    read -p "Meeting type: " LINE
+    if [[ -z "$LINE" ]]; then break; fi
+    IFS='|' read -ra PARTS <<< "$LINE"
+    if [[ ${#PARTS[@]} -ne 3 ]]; then warn "Format: keyword|folder|yes-or-no"; continue; fi
+    KW="${PARTS[0]}"
+    FOLDER="${PARTS[1]}"
+    INCL="${PARTS[2]}"
+    if [[ "$INCL" == "yes" ]]; then INCL_BOOL="true"; else INCL_BOOL="false"; fi
+    if [[ $FIRST -eq 0 ]]; then ITEMS+=","; fi
+    ITEMS+=$(printf '\n  {"keyword":"%s","folder":"%s","include_in_weekly_rollup":%s}' "$KW" "$FOLDER" "$INCL_BOOL")
+    FIRST=0
+  done
+  ITEMS+="\n]"
+  ROUTING_JSON="$ITEMS"
+fi
+ok "Meeting routing configured"
+
+# ============================================================================
+# Step 6 — Install skills + scripts + config
+# ============================================================================
+printf "\n"
+say "Step 6/7 — Installing skills into Claude Code"
 
 mkdir -p "$SKILL_MEETINGS_INSTALL"
 mkdir -p "$SKILL_ROLLUP_INSTALL"
@@ -244,11 +299,10 @@ mkdir -p "$SCRIPTS_INSTALL"
 
 cp "$SKILL_MEETINGS_SRC/SKILL.md" "$SKILL_MEETINGS_INSTALL/SKILL.md"
 cp "$SKILL_ROLLUP_SRC/SKILL.md"   "$SKILL_ROLLUP_INSTALL/SKILL.md"
-cp "$SCRIPTS_SRC/notion-write.py"      "$SCRIPTS_INSTALL/notion-write.py"
-cp "$SCRIPTS_SRC/notion-query.py"      "$SCRIPTS_INSTALL/notion-query.py"
-cp "$SCRIPTS_SRC/notion-page-write.py" "$SCRIPTS_INSTALL/notion-page-write.py"
-cp "$SCRIPTS_SRC/digest-runner.py"     "$SCRIPTS_INSTALL/digest-runner.py"
+# Copy ALL python helpers (Notion + Word/OneDrive + state-store + onedrive-resolve + runner)
+cp "$SCRIPTS_SRC"/*.py "$SCRIPTS_INSTALL/"
 chmod +x "$SCRIPTS_INSTALL"/*.py
+mkdir -p "$SKILL_MEETINGS_INSTALL/state"
 
 # Build config.json from template
 python3 - <<EOF
@@ -256,12 +310,16 @@ import json
 from pathlib import Path
 
 template = json.loads(Path("$CONFIG_SRC").read_text())
+template["installed_at"] = "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+template["platform"] = "macos"
 template["destination"]["type"] = "$DEST_TYPE"
 template["destination"]["folder"] = "$DEST_FOLDER" if "$DEST_TYPE" == "folder" else None
 template["destination"]["notion_api_key"] = "$NOTION_API_KEY" if "$DEST_TYPE" == "notion" else None
 template["destination"]["notion_database_id"] = "$NOTION_DATABASE_ID" if "$DEST_TYPE" == "notion" else None
 template["destination"]["notion_parent_page_id"] = "$NOTION_PARENT_PAGE_ID" if "$DEST_TYPE" == "notion" else None
-template["installed_at"] = "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Meeting routing overrides
+template["meeting_routing"]["types"] = json.loads('''$ROUTING_JSON''')
 
 Path("$CONFIG_INSTALL").write_text(json.dumps(template, indent=2))
 EOF
@@ -271,21 +329,22 @@ ok "Skills installed at $SKILL_MEETINGS_INSTALL and $SKILL_ROLLUP_INSTALL"
 ok "Config written (mode 600 — Notion key protected)"
 
 # ============================================================================
-# Step 6 — Optional Friday weekly rollup schedule
+# Step 7 — Schedule (lunch + EOD + Friday rollup)
 # ============================================================================
 printf "\n"
-say "Step 6/6 — Optional Friday weekly rollup schedule"
+say "Step 7/7 — Schedule three jobs"
 printf "\n"
-printf "Set up automatic Friday weekly rollup?\n"
-printf "  • Fires every Friday at 5:00 PM local time\n"
-printf "  • Pulls the week's Plaud meetings, extracts action items into Notion\n"
-printf "  • Synthesizes a 'Week of …' rollup page so the user has it for weekend reflection\n\n"
-read -p "Enable Friday weekly rollup schedule? [Y/n]: " SCHEDULE_CHOICE
+printf "This will install three launchd jobs:\n"
+printf "  • Daily 12:30 PM — lunch meetings pull\n"
+printf "  • Daily  5:00 PM — afternoon meetings pull\n"
+printf "  • Friday 5:30 PM — weekly rollup (Kingsway Pharma only)\n\n"
+read -p "Enable schedule? [Y/n]: " SCHEDULE_CHOICE
 SCHEDULE_CHOICE="${SCHEDULE_CHOICE:-Y}"
 
+SCHEDULE_CHOICE="${SCHEDULE_CHOICE:-Y}"
 if [[ "$SCHEDULE_CHOICE" =~ ^[Yy]$ ]]; then
   if bash "$SCRIPT_DIR/scripts/schedule.sh"; then
-    ok "Friday weekly rollup schedule installed"
+    ok "Schedule installed (lunch + EOD + Friday rollup)"
   else
     warn "Schedule install failed. You can re-run scripts/schedule.sh later."
   fi
@@ -305,9 +364,11 @@ printf "%bWhat's next:%b\n\n" "$BOLD" "$NC"
 printf "  • Test it now:    %bclaude -p \"/meetings-digest\"%b\n" "$BOLD" "$NC"
 printf "  • Interactive:    %bclaude%b → then type %b/meetings-digest%b\n" "$BOLD" "$NC" "$BOLD" "$NC"
 if [[ "$SCHEDULE_CHOICE" =~ ^[Yy]$ ]]; then
-  printf "  • Scheduled:      Friday 5:00 PM local — pulls week + writes rollup.\n"
-  printf "                    Next-run logs: ~/Library/Logs/plaud-meetings-digest.log\n"
+  printf "  • Scheduled:      Lunch 12:30 PM, EOD 5:00 PM daily; Friday 5:30 PM rollup.\n"
+  printf "                    Logs: ~/Library/Logs/plaud-meetings-digest.log\n"
 fi
+printf "\n%bTrain the client:%b tell them to ALWAYS state the meeting type at the start of every Plaud recording\n" "$BOLD" "$NC"
+printf "(e.g., 'Kingsway Pharma meeting with John Smith'). Without this, recordings route to 'Uncategorized'.\n"
 if [[ "$DEST_TYPE" == "folder" ]]; then
   printf "  • Digest files:   %s/\n" "$DEST_FOLDER"
 else

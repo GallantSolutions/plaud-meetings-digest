@@ -1,17 +1,11 @@
 #!/usr/bin/env bash
 # ============================================================================
-# schedule.sh — Installs ONE launchd job that runs the Friday weekly rollup:
+# schedule.sh — Mac launchd installer (v2.0.0)
 #
-#   Friday 5:00 PM local time → chained run:
-#     1. /meetings-digest --days 7   (pulls the week's Plaud recordings,
-#                                     extracts action items, writes to Notion)
-#     2. /weekly-rollup              (synthesizes the rollup page so the user
-#                                     has it for weekend reflection and walks
-#                                     into Monday ready)
-#
-# Note: prior versions (v1.0/v1.1) installed multiple plists (weekly, then
-# lunch+EOD). This script unloads any of those during install to keep the
-# system in a single coherent state.
+# Installs THREE jobs:
+#   - Daily 12:30 PM     → /meetings-digest (lunch pull)
+#   - Daily  5:00 PM     → /meetings-digest (EOD pull)
+#   - Friday 5:30 PM     → /weekly-rollup   (Kingsway Pharma rollup)
 # ============================================================================
 
 set -euo pipefail
@@ -26,15 +20,19 @@ ok()   { printf "%b✓ %s%b\n" "$GREEN" "$1" "$NC"; }
 warn() { printf "%b⚠ %s%b\n" "$YELLOW" "$1" "$NC"; }
 err()  { printf "%b✗ %s%b\n" "$RED" "$1" "$NC"; }
 
-LABEL_FRIDAY="com.gallant.plaud-meetings-digest.friday-rollup"
-PLIST_FRIDAY="$HOME/Library/LaunchAgents/$LABEL_FRIDAY.plist"
+LABEL_LUNCH="com.gallant.plaud-meetings-digest.lunch"
+LABEL_EOD="com.gallant.plaud-meetings-digest.eod"
+LABEL_ROLLUP="com.gallant.plaud-meetings-digest.rollup"
 
-# Legacy labels (cleaned up on install)
+PLIST_LUNCH="$HOME/Library/LaunchAgents/$LABEL_LUNCH.plist"
+PLIST_EOD="$HOME/Library/LaunchAgents/$LABEL_EOD.plist"
+PLIST_ROLLUP="$HOME/Library/LaunchAgents/$LABEL_ROLLUP.plist"
+
+# Legacy labels we clean up on (re-)install
 LEGACY_LABELS=(
-  "com.gallant.plaud-meetings-digest"             # v1.0 (weekly, single plist)
-  "com.gallant.plaud-meetings-digest.lunch"       # v1.1
-  "com.gallant.plaud-meetings-digest.eod"         # v1.1
-  "com.gallant.plaud-meetings-digest.weekly-rollup"  # v1.2 dev (Friday 5:30 variant)
+  "com.gallant.plaud-meetings-digest"
+  "com.gallant.plaud-meetings-digest.friday-rollup"
+  "com.gallant.plaud-meetings-digest.weekly-rollup"
 )
 
 RUNNER="$HOME/.claude/skills/meetings-digest/scripts/digest-runner.py"
@@ -42,101 +40,109 @@ LOG_OUT="$HOME/Library/Logs/plaud-meetings-digest.stdout.log"
 LOG_ERR="$HOME/Library/Logs/plaud-meetings-digest.stderr.log"
 
 PYTHON_BIN="$(command -v python3 || true)"
-if [[ -z "$PYTHON_BIN" ]]; then
-  err "python3 not found on PATH. Cannot schedule."
-  exit 1
-fi
+if [[ -z "$PYTHON_BIN" ]]; then err "python3 not found on PATH"; exit 1; fi
+if [[ ! -f "$RUNNER" ]]; then err "Runner not found at $RUNNER. Run install.sh first."; exit 1; fi
 
-if [[ ! -f "$RUNNER" ]]; then
-  err "Runner not found at $RUNNER. Run install.sh first."
-  exit 1
-fi
-
-# Clean up legacy plists from prior versions
-for label in "${LEGACY_LABELS[@]}"; do
-  plist="$HOME/Library/LaunchAgents/$label.plist"
-  if [[ -f "$plist" ]]; then
-    launchctl unload "$plist" 2>/dev/null || true
-    rm -f "$plist"
-    warn "Removed legacy schedule: $label"
+# Unload current + legacy
+for L in "$LABEL_LUNCH" "$LABEL_EOD" "$LABEL_ROLLUP" "${LEGACY_LABELS[@]}"; do
+  P="$HOME/Library/LaunchAgents/$L.plist"
+  if [[ -f "$P" ]]; then
+    launchctl unload "$P" 2>/dev/null || true
+    if [[ " ${LEGACY_LABELS[*]} " == *" $L "* ]]; then
+      rm -f "$P"
+      warn "Removed legacy schedule: $L"
+    fi
   fi
 done
 
-# Unload the current label too, if previously installed (rerunning install)
-if [[ -f "$PLIST_FRIDAY" ]]; then
-  launchctl unload "$PLIST_FRIDAY" 2>/dev/null || true
-fi
-
-# Detect PATH the runner should inherit. Mac's launchd has a sparse default
-# PATH so we explicitly include common Homebrew + user paths.
 RUNNER_PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin"
-
-mkdir -p "$(dirname "$PLIST_FRIDAY")"
+mkdir -p "$(dirname "$PLIST_LUNCH")"
 mkdir -p "$HOME/Library/Logs"
 
-# launchd Weekday convention: Sunday=0, Monday=1, ... Friday=5, Saturday=6
-cat > "$PLIST_FRIDAY" <<EOF
+# ---- Build a daily plist (no weekday key) ---------------------------------
+write_daily_plist() {
+  local label="$1"; local plist_path="$2"; local hour="$3"; local minute="$4"; local skill="$5"; local nick="$6"
+  cat > "$plist_path" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key>
-  <string>$LABEL_FRIDAY</string>
-
+  <key>Label</key><string>$label</string>
   <key>ProgramArguments</key>
   <array>
     <string>$PYTHON_BIN</string>
     <string>$RUNNER</string>
-    <string>--skills</string>
-    <string>meetings-digest</string>
-    <string>weekly-rollup</string>
-    <string>--source</string>
-    <string>friday-rollup</string>
+    <string>--skill</string><string>$skill</string>
+    <string>--source</string><string>$nick</string>
   </array>
-
   <key>StartCalendarInterval</key>
   <dict>
-    <key>Weekday</key><integer>5</integer>
-    <key>Hour</key><integer>17</integer>
-    <key>Minute</key><integer>0</integer>
+    <key>Hour</key><integer>$hour</integer>
+    <key>Minute</key><integer>$minute</integer>
   </dict>
-
-  <key>StandardOutPath</key>
-  <string>$LOG_OUT</string>
-
-  <key>StandardErrorPath</key>
-  <string>$LOG_ERR</string>
-
+  <key>StandardOutPath</key><string>$LOG_OUT</string>
+  <key>StandardErrorPath</key><string>$LOG_ERR</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>PATH</key>
-    <string>$RUNNER_PATH</string>
-    <key>HOME</key>
-    <string>$HOME</string>
+    <key>PATH</key><string>$RUNNER_PATH</string>
+    <key>HOME</key><string>$HOME</string>
   </dict>
-
-  <key>RunAtLoad</key>
-  <false/>
-
-  <key>KeepAlive</key>
-  <false/>
+  <key>RunAtLoad</key><false/>
+  <key>KeepAlive</key><false/>
 </dict>
 </plist>
 EOF
+}
 
-launchctl load "$PLIST_FRIDAY"
+# ---- Build a weekly plist (specific weekday) ------------------------------
+write_weekly_plist() {
+  local label="$1"; local plist_path="$2"; local weekday="$3"; local hour="$4"; local minute="$5"; local skill="$6"; local nick="$7"
+  cat > "$plist_path" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$label</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$PYTHON_BIN</string>
+    <string>$RUNNER</string>
+    <string>--skill</string><string>$skill</string>
+    <string>--source</string><string>$nick</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>$weekday</integer>
+    <key>Hour</key><integer>$hour</integer>
+    <key>Minute</key><integer>$minute</integer>
+  </dict>
+  <key>StandardOutPath</key><string>$LOG_OUT</string>
+  <key>StandardErrorPath</key><string>$LOG_ERR</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>$RUNNER_PATH</string>
+    <key>HOME</key><string>$HOME</string>
+  </dict>
+  <key>RunAtLoad</key><false/>
+  <key>KeepAlive</key><false/>
+</dict>
+</plist>
+EOF
+}
 
-ok "Friday rollup schedule installed"
-printf "  Fires:    Every Friday at 5:00 PM local time\n"
-printf "  Chained: /meetings-digest --days 7  →  /weekly-rollup\n"
-printf "  Label:   %s\n" "$LABEL_FRIDAY"
+write_daily_plist  "$LABEL_LUNCH"  "$PLIST_LUNCH"      12 30 "meetings-digest" "lunch"
+write_daily_plist  "$LABEL_EOD"    "$PLIST_EOD"        17  0 "meetings-digest" "eod"
+write_weekly_plist "$LABEL_ROLLUP" "$PLIST_ROLLUP"  5  17 30 "weekly-rollup"   "rollup"
+
+launchctl load "$PLIST_LUNCH"
+launchctl load "$PLIST_EOD"
+launchctl load "$PLIST_ROLLUP"
+
+ok "Schedule installed (3 jobs)"
+printf "  Lunch:   12:30 PM daily  (label %s)\n" "$LABEL_LUNCH"
+printf "  EOD:      5:00 PM daily  (label %s)\n" "$LABEL_EOD"
+printf "  Rollup:   5:30 PM Friday (label %s)\n" "$LABEL_ROLLUP"
 printf "  Logs:    %s\n" "$LOG_OUT"
-printf "           %s\n" "$LOG_ERR"
-printf "\n"
-printf "%bNote: launchd uses LOCAL time. If the Mac timezone is not Eastern,%b\n" "$YELLOW" "$NC"
-printf "%bset the Mac TZ to America/New_York via System Settings → General → Date & Time,%b\n" "$YELLOW" "$NC"
-printf "%bor edit the Hour value in the plist at ~/Library/LaunchAgents/$LABEL_FRIDAY.plist.%b\n" "$YELLOW" "$NC"
 printf "\n"
 printf "Verify:    %blaunchctl list | grep plaud%b\n" "$BOLD" "$NC"
-printf "Test now:  %blaunchctl start %s%b\n" "$BOLD" "$LABEL_FRIDAY" "$NC"
-printf "Disable:   %blaunchctl unload %s%b\n" "$BOLD" "$PLIST_FRIDAY" "$NC"
+printf "Test now:  %blaunchctl start %s%b\n" "$BOLD" "$LABEL_LUNCH" "$NC"

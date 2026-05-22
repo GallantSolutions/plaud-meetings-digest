@@ -89,18 +89,24 @@ def main() -> int:
 
     claude = shutil.which("claude")
     if not claude:
-        # Common install paths if `which` didn't find it
-        for candidate in (
+        # Common install paths if `which` didn't find it.
+        # Includes both Mac (Homebrew) and Windows (LocalAppData) locations.
+        candidates = [
             "/opt/homebrew/bin/claude",
             "/usr/local/bin/claude",
-            f"{Path.home()}/.local/bin/claude",
-        ):
-            if Path(candidate).exists():
-                claude = candidate
+            str(Path.home() / ".local" / "bin" / "claude"),
+            # Windows
+            str(Path.home() / "AppData" / "Local" / "Anthropic" / "claude-code" / "claude.exe"),
+            str(Path.home() / "AppData" / "Local" / "Programs" / "claude-code" / "claude.exe"),
+            "C:/Program Files/Anthropic/Claude/claude.exe",
+        ]
+        for c in candidates:
+            if Path(c).exists():
+                claude = c
                 break
 
     if not claude:
-        log("ERROR: claude CLI not found on PATH. Install via 'brew install --cask claude-code'.")
+        log("ERROR: claude CLI not found on PATH. Run install.sh (Mac) or install.ps1 (Windows).")
         return 2
 
     log(f"Using claude at: {claude}")

@@ -1,40 +1,51 @@
 {
-  "version": "1.2.0",
+  "version": "2.0.0",
   "installed_at": null,
+  "platform": null,
   "destination": {
     "type": null,
-    "folder": null,
+    "onedrive_folder": null,
     "notion_api_key": null,
     "notion_database_id": null,
-    "notion_parent_page_id": null
+    "notion_parent_page_id": null,
+    "folder": null
   },
-  "window_days": 7,
+  "meeting_routing": {
+    "enabled": true,
+    "scan_first_seconds": 30,
+    "types": [
+      { "keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "include_in_weekly_rollup": true  },
+      { "keyword": "Church",          "folder": "Church",          "include_in_weekly_rollup": false },
+      { "keyword": "Personal",        "folder": "Personal",        "include_in_weekly_rollup": false }
+    ],
+    "fallback_folder": "Uncategorized"
+  },
+  "window_days": 3,
   "timezone": "America/New_York",
   "contexts": [
-    "Client work",
-    "Internal ops",
-    "Strategic / planning",
-    "Sales / prospecting",
+    "Sales",
+    "Operations",
+    "Strategic",
+    "Compliance",
     "Personal"
   ],
   "default_owner": "me",
   "skip_recordings_under_minutes": 2,
   "dedup": {
     "enabled": true,
-    "state_file": "~/.claude/skills/meetings-digest/.processed-file-ids.json",
     "retention_days": 90
-  },
-  "schedule": {
-    "label": "friday-rollup",
-    "day_of_week": 5,
-    "hour": 17,
-    "minute": 0
   },
   "weekly_rollup": {
     "enabled": true,
     "include_focus_picks": true,
     "max_focus_picks": 5,
     "carry_over_warn_days": 14,
-    "carry_over_loud_days": 21
+    "carry_over_loud_days": 21,
+    "carry_over_window_days": 30
+  },
+  "schedule": {
+    "lunch":  { "hour": 12, "minute": 30 },
+    "eod":    { "hour": 17, "minute":  0 },
+    "rollup": { "day_of_week": 5, "hour": 17, "minute": 30 }
   }
 }

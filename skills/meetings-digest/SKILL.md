@@ -1,265 +1,305 @@
 ---
 name: meetings-digest
-description: Pull Plaud recordings from a configurable time window, extract structured action items / decisions / open questions grouped by context, and write the digest to the configured destination (folder or Notion).
+description: Pull Plaud recordings, route each one to the correct meeting-type folder based on the spoken opening line (e.g., "Kingsway Pharma with John Smith"), extract structured action items / decisions / open questions, and write the output to the configured destination — Word documents in OneDrive on Windows, Notion database rows on Mac. Also append items to a local JSONL state file so the weekly-rollup skill can synthesize cross-meeting summaries.
 ---
 
 # meetings-digest
 
-This skill pulls recordings from Plaud AI via the Plaud MCP server, re-extracts structured information from the transcripts (NOT trusting Plaud's built-in AI summary), and writes a digest to the configured destination.
+This skill pulls recordings from Plaud AI via the Plaud MCP server, re-extracts structured information from the transcripts (NOT trusting Plaud's built-in AI summary), routes each recording to the correct meeting-type folder, and writes the output to the configured destination.
 
-## When this skill fires
+**Destination branches by OS** (picked at install time, written into `config.json`):
 
-Triggers on user intent to generate a meeting digest:
+- **Windows** → Word `.docx` files written to OneDrive folders (per-meeting-type subfolders, with meeting routing)
+- **Mac** → Notion database rows (one row per action item), grouped by meeting type via the `Context` property
 
-- `/meetings-digest` — process new recordings from the last 7 days (the default work-week window)
-- `/meetings-digest --days 14` (override window)
-- `/meetings-digest --since 2026-05-14` (explicit start)
-- `/meetings-digest --force` (ignore dedup, re-process everything in window)
-- "Pull my new Plaud meetings"
-- "Process this week's calls"
+Same skill, same routing logic, same JSONL state file — only the WRITE step branches.
 
 ## Operating mode
 
-This skill runs **once a week on Friday at 5:00 PM local time** as the first half of the Friday weekly-rollup chain (immediately followed by `/weekly-rollup` which synthesizes the rollup page). It can also be invoked manually any time. Each run:
+This skill runs **twice daily** by default — at 12:30 PM (lunch) and 5:00 PM (EOD) local time — plus any manual invocations. Dedup state at `~/.claude/skills/meetings-digest/state/processed-file-ids.json` ensures meetings aren't double-processed across runs.
 
-1. Pulls all recordings in the `window_days` window (default: 7 days — covers the just-completed work week)
-2. **Deduplicates** against the processed-file-ids state file so meetings already extracted in a prior manual run aren't double-written
-3. Extracts action items / decisions / open questions from each NEW recording
-4. Writes to the configured destination (Notion DB rows or markdown file)
-5. Records the newly processed file IDs in the state file
+The Friday 5:00 PM run is chained: this skill fires first; the [[weekly-rollup]] skill fires at 5:30 PM (configured in `schedule.ps1` on Windows, `schedule.sh` on Mac) to synthesize the week's Kingsway Pharma items into a rollup `.docx`.
+
+## When this skill fires
+
+- `/meetings-digest` — process new recordings since the last run (default window: 3 days, dedup-filtered)
+- `/meetings-digest --days 14` — override window
+- `/meetings-digest --since 2026-05-19` — explicit start
+- `/meetings-digest --force` — ignore dedup, re-process everything in window
+- "Pull my new Plaud meetings"
 
 ## Pre-flight
 
-1. **Read the config** at `~/.claude/skills/meetings-digest/config.json`. This file holds:
-   - `destination.type` — `folder` or `notion`
-   - `destination.folder` — output folder path (if folder mode)
-   - `destination.notion_api_key` + `destination.notion_database_id` (if notion mode)
-   - `window_days` — default lookback window (default: 7 — the just-completed work week)
-   - `contexts` — operator-defined context tags
-   - `timezone` — IANA timezone (e.g., `America/New_York`)
-   - `dedup.enabled` — true by default
-   - `dedup.state_file` — path to the processed-file-ids state file
-   - `dedup.retention_days` — how long to keep IDs in the state file (default: 90)
+1. **Read the config** at `~/.claude/skills/meetings-digest/config.json`:
+   - `destination.type` — `word_onedrive` (Windows default) | `notion` (Mac default) | `folder` (universal fallback, plain markdown)
+   - `destination.onedrive_folder` — base OneDrive path (word_onedrive mode only, e.g., `C:\Users\client\OneDrive`)
+   - `destination.notion_api_key` / `destination.notion_database_id` / `destination.notion_parent_page_id` — Notion mode only
+   - `destination.folder` — markdown folder (folder mode only)
+   - `meeting_routing.types` — list of `{keyword, folder, include_in_weekly_rollup}` entries
+   - `meeting_routing.fallback_folder` — where unrouted recordings go (default `Uncategorized`)
+   - `meeting_routing.scan_first_seconds` — how much of the transcript to scan for routing (default 30)
+   - `window_days` — default lookback window (default 3 — covers weekend + missed runs)
+   - `contexts` — operator-defined context tags for action items
+   - `timezone` — IANA timezone
+   - `dedup.enabled`, `dedup.retention_days`
 
-2. **Verify Plaud MCP is connected.** Tool calls should be available under the `plaud` namespace: `list_files`, `get_file`, `get_transcript`, `get_note`. If unavailable, ask the user to run `npx -y @plaud-ai/mcp@latest install` and complete OAuth.
+2. **Verify Plaud MCP is connected.** Tool calls available under the `plaud` namespace: `list_files`, `get_file`, `get_transcript`, `get_note`. If unavailable, ask the user to re-run install (which re-authorizes Plaud).
 
-3. **Load the dedup state file.** Path is `~/.claude/skills/meetings-digest/.processed-file-ids.json` (or whatever `dedup.state_file` resolves to). Shape:
+3. **Load dedup state** via `state_store.load_dedup()`. The skill calls the helper from the shell (`python3 -c "from state_store import load_dedup; ..."`) or invokes the diagnostic CLI directly.
 
-   ```json
-   {
-     "processed": [
-       { "file_id": "rec_abc123", "processed_at": "2026-05-21T12:30:15Z" },
-       { "file_id": "rec_def456", "processed_at": "2026-05-21T17:00:08Z" }
-     ]
-   }
-   ```
-
-   If the file doesn't exist, create it with `{"processed": []}`. Prune entries older than `dedup.retention_days` (default 90) before writing back.
-
-4. **Resolve the time window.** Default: last `window_days` (= 7) ending now. If the user gave `--days N` or `--since YYYY-MM-DD`, honor that. For the Friday-5pm scheduled run, this naturally captures Monday → Friday of the current work week.
+4. **Resolve the time window.** Default: last `window_days` ending now.
 
 ## Pull recordings
 
-Call `list_files` with the resolved date range. Filter to recordings only (not other file types). Sort chronologically.
+Call `list_files` with the resolved date range. Filter to recordings only. Sort chronologically.
 
-**Apply dedup filter.** Remove any recording whose `file_id` is in the dedup state file's `processed` list — UNLESS the user passed `--force`. If everything is deduped out, exit cleanly with `No new recordings since last run. (N already processed in window.)` and skip the rest.
+**Apply dedup filter.** Remove any recording whose `file_id` is in the dedup state — unless `--force`. If everything is deduped out, exit cleanly with `No new recordings since last run.`
 
-For each REMAINING recording:
-1. Call `get_transcript` to fetch the full text with speaker labels + timestamps.
-2. Note the recording metadata: title, duration, recorded_at, speaker count.
+For each remaining recording:
+1. Call `get_transcript` to fetch the full transcript with speaker labels + timestamps.
+2. Read recording metadata: title, duration, recorded_at, speakers.
 
-**Do NOT call `get_note`.** Plaud's built-in AI summary is what we're replacing. Pull the transcript and re-extract everything ourselves.
+**Do NOT call `get_note`.** We re-extract from the transcript ourselves.
 
-If a recording has no transcript yet (still processing), skip it AND do not add it to the dedup state (so the next run picks it up once Plaud finishes processing). Note in the digest under "Skipped: still processing."
+If a recording has no transcript yet (still processing), skip it AND do not mark it processed in dedup state (so next run picks it up once Plaud finishes).
+
+## Route by meeting type
+
+For each transcript, identify the meeting type by scanning the first `scan_first_seconds` of speech (default 30 sec — typically the first ~500–800 characters of the transcript).
+
+**Algorithm:**
+
+1. Take the first 30 seconds of transcript text. Strip speaker labels and timestamps; keep just the spoken words.
+2. For each `meeting_routing.types` entry, in order:
+   - Substring search for `entry.keyword` (case-insensitive) in the opening text.
+   - First match wins. Set `meeting_type = entry.folder`, `include_in_rollup = entry.include_in_weekly_rollup`.
+3. If no keyword matches, set `meeting_type = meeting_routing.fallback_folder` (default `Uncategorized`) and `include_in_rollup = false`.
+
+**Example for this client's config:**
+
+```json
+"meeting_routing": {
+  "scan_first_seconds": 30,
+  "types": [
+    {"keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "include_in_weekly_rollup": true},
+    {"keyword": "Church",          "folder": "Church",          "include_in_weekly_rollup": false},
+    {"keyword": "Personal",        "folder": "Personal",        "include_in_weekly_rollup": false}
+  ],
+  "fallback_folder": "Uncategorized"
+}
+```
+
+Recording opens with "Kingsway Pharma meeting with John Smith…" → routes to `Kingsway Pharma/` AND will appear in the Friday rollup. Recording opens with "Sunday morning church reflection…" → routes to `Church/` and stays out of the rollup.
 
 ## Extract structured information
 
-For each transcript, identify these four categories. Stay disciplined — only include items the transcript actually supports.
+For each transcript, identify these categories. Stay disciplined — only include items the transcript actually supports.
 
 ### Action items
 
 A line counts as an action item if it has BOTH:
-- An imperative or commitment ("we need to," "I'll send," "let's get," "follow up on…," "by end of week," "before our next call")
+- An imperative or commitment ("we need to," "I'll send," "let's get," "follow up on…", "by end of week," "before our next call")
 - AND an implied or explicit owner (specific person named, or "I" / "we" where the speaker is identifiable)
 
-For each action item, extract:
-- **Owner** — who's responsible. Use the speaker's name if "I'll do X." Use the named person if "Sarah, can you…" If unclear, mark as `owner: unclear` and note in the digest.
-- **Action** — the imperative in 5–15 words.
-- **Due** — explicit date if mentioned ("by Friday," "next week," "end of month") resolved to an absolute date. Otherwise null.
-- **Source** — recording title + timestamp where the commitment was made.
-- **Context** — which `contexts` bucket from config this belongs to. If unclear, ask before assigning to a default.
+For each, extract: **owner**, **action** (5–15 words), **due** (resolved to absolute date if mentioned), **priority** (High/Medium/Low — inferred from urgency cues), **context** (from `contexts` list in config — best fit; ask only if no contexts make sense; default to first context), **source_timestamp** (HH:MM:SS into recording).
 
-Skip these (NOT action items):
-- Discussion-only mentions ("we should think about X" with no commitment)
-- Hypotheticals ("if we did X, then Y")
-- Past actions ("we already shipped Y")
-- Soft asks ("would be nice to have")
+Skip:
+- Discussion-only mentions
+- Hypotheticals
+- Past actions
+- Soft asks ("would be nice")
 
 ### Decisions made
 
-Things explicitly decided in the meeting (vs. discussed but unresolved). Look for phrases like "OK, let's go with…", "Decided: …", "Final answer: …", "We're going to…"
+Things explicitly decided. Look for "OK, let's go with…", "Decided:", "Final answer:", "We're going to…"
 
-For each decision:
-- **What** — the decision in one sentence
-- **Why** — rationale if stated
-- **Affects** — which project/context
-- **Source** — recording + timestamp
+Each: **what**, **why** (if stated), **source_timestamp**.
 
-### Open questions raised
+### Open questions
 
-Questions that came up but weren't resolved. Phrased as "what about…", "I don't know…", "should we…", "we need to figure out…"
+Questions raised but not resolved. "What about…", "I don't know…", "should we…", "we need to figure out…"
 
-For each:
-- **Question** — the question in one sentence
-- **Raised by** — who asked it
-- **Context** — which project/area
-- **Source** — recording + timestamp
+Each: **question**, **raised_by**, **source_timestamp**.
 
-### Notable quotes (optional)
+### Notable quotes (optional, max 3–5 per meeting)
 
-Direct quotes worth preserving — strong opinions, important context, surprising statements. Limit to 3–5 per digest.
+Direct quotes worth preserving. Each: **quote**, **speaker**, **source_timestamp**.
 
-## Write the digest
+## Write to the configured destination
 
 Branch on `destination.type`:
 
-### Folder destination
+### Mode A: `word_onedrive` (Windows default)
 
-Write to `{destination.folder}/{YYYY}-W{WW}.md` — one file per ISO week (since the scheduled run is weekly on Fridays). If a file already exists for this week (manual run earlier in the week), **append** a new section dated with the current run timestamp under a `## Run at YYYY-MM-DD HH:MM` heading — never overwrite. Past weeks' files are immutable.
+For each processed recording, build a JSON object matching the `docx_writer.py` input shape:
 
-Format:
-
-```markdown
-# Week of YYYY-MM-DD — Meeting Digest
-
-## Run at YYYY-MM-DD HH:MM ({source: friday-rollup | manual})
-
-_Generated YYYY-MM-DD HH:MM by Plaud Meetings Digest._
-
-## Sources
-- YYYY-MM-DD — "Recording title" (NN min, M speakers)
-- YYYY-MM-DD — "Recording title" (NN min, M speakers)
-
-## Action items by context
-
-### {Context A}
-- [ ] {Action} — {owner}, due {date or "no deadline"} _(from "Recording", HH:MM)_
-- [ ] ...
-
-### {Context B}
-- [ ] ...
-
-## Decisions made
-- **{Decision}** — {context}. {Why if stated}. _(from "Recording", HH:MM)_
-
-## Open questions raised
-- **{Question}** — raised by {who}, {context}. _(from "Recording", HH:MM)_
-
-## Notable quotes
-- > {Quote} — {Speaker}, "{Recording}" HH:MM
-
-## Skipped
-- {Recording title} — still processing
+```json
+{
+  "meeting_type": "Kingsway Pharma",
+  "recording_title": "Kingsway Pharma w/ John Smith",
+  "recorded_at": "2026-05-22T14:30:00-04:00",
+  "duration_minutes": 47.3,
+  "speakers": ["Garrett", "John Smith"],
+  "source_file_id": "rec_abc123",
+  "transcript_excerpt": "...first 500 chars (for audit trail)...",
+  "action_items": [...],
+  "decisions": [...],
+  "open_questions": [...],
+  "notable_quotes": [...]
+}
 ```
 
-### Notion destination
-
-For each action item, call the helper script:
+Write it to a tempfile, then invoke:
 
 ```bash
-python3 ~/.claude/skills/meetings-digest/scripts/notion-write.py \
-  --action-items <path-to-tempfile.json>
+python3 ~/.claude/skills/meetings-digest/scripts/docx_writer.py --input /tmp/meeting-<file_id>.json
 ```
 
-Where the tempfile is a JSON array of objects with shape:
+The script computes the output path automatically: `{onedrive_folder}/Plaud Meetings/{meeting_type}/<YYYY-MM-DD HHMM> <title>.docx`. Prints the resolved path on success.
+
+### Mode B: `notion` (Mac default)
+
+For each action item extracted, build a JSON array entry matching the `notion-write.py` input shape:
 
 ```json
 [
   {
-    "action": "Send Bristol Barber Co the audit PDF",
+    "action": "Send Bristol the audit PDF",
     "owner": "Garrett",
-    "context": "RANK",
+    "context": "Kingsway Pharma",         // we use the routed meeting_type as the Notion Context property
     "due": "2026-05-23",
-    "source_recording": "Bristol discovery call",
-    "source_recorded_at": "2026-05-19T14:30:00Z",
+    "source_recording": "Kingsway Pharma w/ John Smith",
+    "source_recorded_at": "2026-05-22T14:30:00-04:00",
     "source_timestamp": "00:23:15",
-    "priority": "medium"
+    "priority": "Medium"
   }
 ]
 ```
 
-The Notion helper creates one row per action item in the configured database. Each row has properties: Action (title), Context (select), Owner (text), Due (date), Source (text), Status (Open by default), Priority (Medium by default), Created (today).
+Write the array to a tempfile and invoke:
 
-Decisions, open questions, and notable quotes are written to a single Notion page (created via Notion API) titled "YYYY-MM-DD — Run {friday-rollup|manual}" linked to the action-item rows it generated.
+```bash
+python3 ~/.claude/skills/meetings-digest/scripts/notion-write.py --action-items /tmp/items-<batch>.json
+```
+
+The Notion Context property doubles as the meeting-type tag — filtering for `Context = Kingsway Pharma` produces the same scoping that the Windows OneDrive folder gives.
+
+For decisions / open questions / notable quotes in Notion mode, write a single page per recording via `notion-page-write.py` (titled `<date> — <recording-title>`) under the same parent page. Link the action-item rows back to it via a `Source` rich-text field. (Or skip the per-recording page and put decisions/questions only in the rollup — operator preference; default: skip per-recording page in Notion mode, only the rollup carries them.)
+
+### Mode C: `folder` (universal fallback)
+
+Append to `{destination.folder}/{YYYY}-W{WW}.md` under sections for each meeting type. Same shape as previously documented.
+
+## Append to state JSONL
+
+After the `.docx` write succeeds, append each action item to `~/.claude/skills/meetings-digest/state/action-items.jsonl` via the `state_store.append_items()` helper. Each row carries:
+
+```json
+{
+  "action": "...",
+  "owner": "...",
+  "context": "...",
+  "due": "...",
+  "priority": "...",
+  "meeting_type": "Kingsway Pharma",
+  "source_file_id": "rec_abc123",
+  "source_recording_title": "...",
+  "source_recorded_at": "...",
+  "source_timestamp": "...",
+  "extracted_at": "<UTC now ISO>"
+}
+```
+
+The weekly-rollup skill reads this JSONL filtered by `meeting_type` to build the Friday rollup.
 
 ## Record dedup state
 
-After successfully writing each recording's extracted items to the destination, append its `file_id` and the current ISO-8601 UTC timestamp to the dedup state file. Write atomically (temp file + rename). Prune entries older than `dedup.retention_days` (default 90) at the same time.
+After both the `.docx` and JSONL writes succeed for a recording, call `state_store.mark_processed([file_id])` to add it to the dedup state. Prune entries older than `dedup.retention_days` (default 90).
 
-If the destination write FAILED for a recording — do NOT mark it processed. The next run will pick it up again.
+If either write FAILED, do NOT mark processed — next run will retry.
 
 ## Report to the user
 
-After writing the digest, print a short summary:
-
 ```
-✓ Plaud Meetings Digest — YYYY-MM-DD HH:MM (source: friday-rollup|manual)
+✓ Plaud Meetings Digest — YYYY-MM-DD HH:MM (source: lunch|eod|manual)
 
-Window:     last N days
-Found:      M recordings in window
-Skipped:    K already processed (dedup); J still processing (no transcript yet)
-Processed:  P new recordings (total NN min)
-Extracted:  X action items, Y decisions, Z open questions
+Window:      last N days
+Found:       M recordings in window
+Skipped:     K already processed (dedup); J still processing (no transcript yet)
+Processed:   P new recordings (total NN min)
 
-Highlights:
-  • {first 3 action items, one per line}
+Routed:
+  Kingsway Pharma:   X recordings → "{OneDrive}/Plaud Meetings/Kingsway Pharma/"
+  Church:            Y recordings → "{OneDrive}/Plaud Meetings/Church/"
+  Personal:          Z recordings → "{OneDrive}/Plaud Meetings/Personal/"
+  Uncategorized:     W recordings (opening line had no recognized keyword)
 
-Written to: {destination path or Notion DB link}
-```
-
-If nothing was new (dedup skipped everything in the window):
-
-```
-No new recordings since last run. (M already processed in the last N-day window.)
+Extracted:   X action items, Y decisions, Z open questions
 ```
 
-Do NOT paste the full digest into the chat. The digest belongs in the destination.
+If nothing was new: `No new recordings since last run. (M already processed in the last N-day window.)`
+
+Do NOT paste the full digest into the chat — it belongs in the Word docs.
 
 ## Anti-patterns
 
-- **Do not trust Plaud's `get_note` output.** The user explicitly chose this skill because Plaud's built-in AI is weak. Re-extract from the transcript.
-- **Do not invent action items.** If the transcript doesn't clearly support a commitment, leave it out. False positives erode trust.
-- **Do not skip recordings silently.** If a recording is in the window but can't be processed (no transcript, error), surface it in the "Skipped" section.
-- **Do not overwrite past digests.** Folder mode appends; Notion mode creates new rows.
-- **Do not change the destination on the fly.** If the user wants to change destination, run the installer again — don't reconfigure inside the skill.
-- **Do not log Notion API keys.** When debugging, mask them as `secret_xxx...{last4}`.
+- **Do not trust Plaud's `get_note`** — re-extract from the transcript.
+- **Do not invent action items** — if the transcript doesn't support a commitment, leave it out.
+- **Do not skip routing** — every recording goes to a folder, even if it's `Uncategorized`. Surface uncategorized counts in the report so the operator notices when the client forgets to say the meeting type.
+- **Do not split a single recording across folders** — meeting type is determined ONCE per recording from the opening line; pick first match and apply consistently.
+- **Do not write the .docx before extraction completes** — if extraction fails, no partial .docx should land.
+- **Do not modify past .docx files** — each recording produces one .docx, immutable. Re-extraction (via `--force`) creates a NEW .docx with the same name plus a re-run suffix.
+- **Do not mark a recording processed unless BOTH writes succeed** (`.docx` + JSONL append). Otherwise next run will pick it up.
 
 ## Edge cases
 
-- **No recordings in window** — print `No Plaud recordings found in the {N}-day window ending {date}. (Nothing to do.)` and exit cleanly without touching the dedup state.
-- **All recordings already processed (dedup hit)** — print the "no new recordings since last run" message and exit cleanly.
-- **Plaud OAuth expired** — surface the error and tell the user to re-run the installer (which re-OAuths). Do NOT update the dedup state.
-- **Notion API key invalid** — surface the error and tell the user to re-run the installer with a fresh integration token. Do NOT update the dedup state.
-- **`--force` flag passed** — bypass dedup filter; re-extract everything in the window. Useful for re-running after a bad extraction. The dedup state is still updated (so subsequent normal runs don't double-process).
-- **Recording is non-English** — let Plaud's transcript be the source of truth; extract in whatever language the transcript uses.
-- **Dedup state file corrupted** — back it up as `.processed-file-ids.json.bak` and start fresh with `{"processed": []}`. Print a warning; do not abort.
+- **No recordings in window** → print "No Plaud recordings found in the {N}-day window" and exit; don't touch state.
+- **All recordings already processed** → print "No new recordings since last run" and exit.
+- **Plaud OAuth expired** → surface error; tell user to re-run install (which re-OAuths).
+- **OneDrive folder missing / not yet synced** → surface error with path; tell user OneDrive needs to be installed + signed in.
+- **Routing keyword matches multiple types** → first match in the `types` list wins. Operator orders the list with most specific first.
+- **`--force` flag** → bypass dedup; re-extract everything in window. Creates new .docx files (won't overwrite the originals — appends a `(re-run HHMM)` suffix to the filename). Dedup state is still updated.
+- **Dedup state corrupted** → `state_store` backs it up as `.bak` and starts fresh with a warning.
+- **Non-English recording** → use the transcript as source of truth; extract in whatever language it's in.
 
 ## Config schema (reference)
 
 ```json
 {
-  "version": "1.1.0",
+  "version": "2.0.0",
   "installed_at": "ISO-8601 timestamp",
+  "platform": "windows | macos",
   "destination": {
-    "type": "folder | notion",
-    "folder": "/path/to/folder (folder mode)",
-    "notion_api_key": "secret_... (notion mode)",
-    "notion_database_id": "32-char hex (notion mode)"
+    "type": "word_onedrive | notion | folder",
+    "onedrive_folder": "C:\\Users\\client\\OneDrive (word_onedrive only)",
+    "notion_api_key":          "secret_... (notion only)",
+    "notion_database_id":      "32-char hex (notion only)",
+    "notion_parent_page_id":   "32-char hex (notion only — for weekly rollup pages)",
+    "folder":                  "/path/to/folder (folder only)"
+  },
+  "meeting_routing": {
+    "enabled": true,
+    "scan_first_seconds": 30,
+    "types": [
+      {"keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "include_in_weekly_rollup": true},
+      {"keyword": "Church",          "folder": "Church",          "include_in_weekly_rollup": false},
+      {"keyword": "Personal",        "folder": "Personal",        "include_in_weekly_rollup": false}
+    ],
+    "fallback_folder": "Uncategorized"
   },
   "window_days": 3,
   "timezone": "America/New_York",
-  "contexts": ["RANK", "Client work", "Portfolio", "Internal ops", "Personal"],
-  "default_owner": "Garrett",
-  "skip_recordings_under_minutes": 2
+  "contexts": ["Sales", "Operations", "Strategic", "Compliance", "Personal"],
+  "default_owner": "me",
+  "skip_recordings_under_minutes": 2,
+  "dedup": {
+    "enabled": true,
+    "retention_days": 90
+  },
+  "schedule": {
+    "lunch":  {"hour": 12, "minute": 30},
+    "eod":    {"hour": 17, "minute":  0},
+    "rollup": {"day_of_week": 5, "hour": 17, "minute": 30}
+  }
 }
 ```

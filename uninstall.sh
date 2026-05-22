@@ -21,13 +21,14 @@ warn() { printf "%b⚠ %s%b\n" "$YELLOW" "$1" "$NC"; }
 
 printf "\n%bPlaud Meetings Digest — Uninstaller%b\n\n" "$BOLD" "$NC"
 
-# Remove scheduled jobs (current + all legacy variants)
+# Remove scheduled jobs (current v2.0.0 + all legacy variants)
 REMOVED_ANY=false
 for PLIST in \
-  "$HOME/Library/LaunchAgents/com.gallant.plaud-meetings-digest.friday-rollup.plist" \
-  "$HOME/Library/LaunchAgents/com.gallant.plaud-meetings-digest.weekly-rollup.plist" \
   "$HOME/Library/LaunchAgents/com.gallant.plaud-meetings-digest.lunch.plist" \
   "$HOME/Library/LaunchAgents/com.gallant.plaud-meetings-digest.eod.plist" \
+  "$HOME/Library/LaunchAgents/com.gallant.plaud-meetings-digest.rollup.plist" \
+  "$HOME/Library/LaunchAgents/com.gallant.plaud-meetings-digest.friday-rollup.plist" \
+  "$HOME/Library/LaunchAgents/com.gallant.plaud-meetings-digest.weekly-rollup.plist" \
   "$HOME/Library/LaunchAgents/com.gallant.plaud-meetings-digest.plist"; do
   if [[ -f "$PLIST" ]]; then
     launchctl unload "$PLIST" 2>/dev/null || true

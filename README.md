@@ -1,146 +1,95 @@
 # Plaud Meetings Digest
 
-A small tool that turns your Plaud recordings into a clean weekly action-items rollup — every Friday at 5pm, in Notion or as a markdown file.
+Turn your Plaud recordings into routed, structured action items — automatically. Cross-platform (Windows + Mac) with OS-appropriate destinations:
+
+| Platform | Default destination | Per-meeting output | Weekly rollup output |
+|---|---|---|---|
+| **Windows** | OneDrive folders | Word `.docx` in `OneDrive\Plaud Meetings\<meeting-type>\` | Word `.docx` in `<meeting-type>\_weekly\` |
+| **Mac**     | Notion             | Database rows tagged by meeting type | Notion page under the parent page |
 
 Built by **Gallant**.
 
 ## What it does
 
-Every **Friday at 5:00 PM local time**, it:
+Every weekday at **12:30 PM** and **5:00 PM** local time, plus a synthesis run on **Friday at 5:30 PM**, it:
 
-1. Pulls all your Plaud recordings from the past week
-2. Extracts the action items, decisions, and open questions from each transcript
-3. Drops them into your Notion workspace (or a folder on your Mac)
-4. Synthesizes a **weekly rollup page** — one focused document showing your top priorities for next week, carry-over items still open, decisions made, and themes Claude noticed across your meetings
+1. Pulls the latest Plaud recordings
+2. **Routes each one to a folder/tag based on the spoken opening line.** The client says "Kingsway Pharma meeting with John Smith" → it goes to the Kingsway Pharma folder. Says "Sunday morning church reflection" → goes to Church. Says "Personal note about the kids" → goes to Personal. No keyword detected → Uncategorized.
+3. Extracts action items, decisions, open questions, key quotes from the transcript (NOT Plaud's built-in AI summary — re-extracted by Claude for quality)
+4. Writes the per-meeting output to the routed destination
+5. On Friday at 5:30 PM, synthesizes a **weekly rollup** for ONLY the meeting types flagged for rollup (default: Kingsway Pharma only — Church and Personal stay in their folders but don't roll up)
 
-You walk out of the office Friday evening with the rollup in hand, think on it over the weekend, and walk into Monday with priorities locked. You stop hand-copying notes out of Plaud. The thinking shows up where you actually work.
+You stop hand-copying notes out of Plaud. Action items show up where you actually work, sorted by the meetings that matter for the rollup.
 
-## Who set this up for you
+## Critical training point for the client
 
-A Gallant operator installed this on your Mac. You shouldn't need to do anything in the terminal — they handled all the setup.
+**Always state the meeting type at the start of every Plaud recording.** Examples:
 
-This file is for your reference. The full installer-guide is in `OPERATOR-INSTALL-GUIDE.md` if you're curious.
+- ✅ "Kingsway Pharma meeting with John Smith, we're going over Q3 plans"
+- ✅ "Church reflection, this week's sermon was about…"
+- ✅ "Personal note, reminder to call the dentist"
+- ❌ "Hey, so I wanted to talk about…" (no keyword → routes to Uncategorized)
 
-## How to use it
+The skill scans the first ~30 seconds for the keyword. Default keywords for this client: **Kingsway Pharma**, **Church**, **Personal**. Operator can customize the list at install time or by editing `~/.claude/skills/meetings-digest/config.json`.
+
+## How to use it (recipient)
 
 ### Automatic (you don't do anything)
 
-Every **Friday at 5:00 PM local time**, the scheduled job runs. Within ~5–10 minutes:
+Three scheduled jobs run on their own:
 
-- Action items from the week appear in your Notion database
-- The **weekly rollup page** appears under the same Notion parent page, titled `Week of YYYY-MM-DD — Action Items Rollup`
+- **12:30 PM daily** — pull morning meetings
+- **5:00 PM daily** — pull afternoon meetings
+- **5:30 PM Friday** — synthesize the weekly rollup (Kingsway Pharma only)
 
-(Folder mode: the rollup lands at `~/Plaud-Digests/_weekly/YYYY-WWW.md`.)
+Outputs land in:
+- **Windows**: `<OneDrive>\Plaud Meetings\<meeting-type>\<YYYY-MM-DD HHMM> <title>.docx`
+- **Mac**: your Notion database (per action item) and a weekly rollup page under the parent page
 
-### Manual (when you want an immediate pull)
+### Manual
 
-1. Open Terminal (Cmd+Space → type "Terminal" → Enter)
-2. Type:
-
-   ```
-   claude
-   ```
-
-   Press Enter. You're now in Claude Code.
-
+1. Open a terminal (Mac) or PowerShell (Windows)
+2. Type `claude` → Enter
 3. Type one of:
-
-   ```
-   /meetings-digest          # just pull this week's meetings into Notion
-   /weekly-rollup            # synthesize the weekly rollup page
-   ```
-
-   Press Enter after the one you want. To do both (full Friday-style flow), run them in sequence.
-
-4. When done, type `/exit` to leave.
-
-### To pull a custom window
-
-If you want more or fewer days:
-
-```
-/meetings-digest --days 14
-```
-
-(Last 14 days instead of the default 7.)
-
-Or a specific start date:
-
-```
-/meetings-digest --since 2026-05-01
-```
-
-### To re-extract a meeting you already saw
-
-The skill dedupes — once a meeting is in your Notion DB, it won't be re-processed. To force a re-extract (e.g., after editing the contexts config):
-
-```
-/meetings-digest --force
-```
-
-This re-processes every meeting in the window. New rows will appear in Notion; the old ones aren't deleted (so review + clean up the duplicates manually if needed).
-
-## Where your action items go
-
-Depending on what was set during install:
-
-**Notion mode** — Open your Notion workspace. You'll have a database called **Plaud Meeting Action Items** with one row per action item:
-
-| Action | Context | Owner | Due | Status | Priority | Source |
-|---|---|---|---|---|---|---|
-| Send Bristol the audit PDF | RANK | You | 2026-05-23 | Open | Medium | Bristol discovery call @ 00:23:15 |
-
-Mark items "Done" in the Status column as you complete them. The skill never reads back, so your status edits are safe.
-
-**Folder mode** — Open Finder → go to `~/Plaud-Digests/`. There's one markdown file per ISO week (`2026-W21.md`, `2026-W22.md`, etc.) holding raw action items, and a `_weekly/` subfolder with the synthesized rollup pages. Open in any text editor (TextEdit, Obsidian, VS Code — your choice).
-
-## What the AI is doing
-
-For each meeting:
-- Pulls the **transcript** (the speaker-labeled text) — NOT Plaud's built-in AI summary. This skill explicitly ignores Plaud's AI because we re-extract with a more reliable model.
-- Identifies **action items**: imperative + owner + (sometimes) deadline
-- Identifies **decisions** that were explicitly made (not just discussed)
-- Identifies **open questions** that came up but weren't resolved
-- Tags each with a context (Client work / Internal ops / Strategic / Sales / Personal)
-
-The default contexts are tuned for typical knowledge-worker meetings. If they don't fit your work, your installer can customize them by editing `~/.claude/skills/meetings-digest/config.json`.
+   - `/meetings-digest` — pull and route new meetings now
+   - `/weekly-rollup` — synthesize the weekly rollup for Kingsway Pharma
+   - `/meetings-digest --days 14` — wider window
+   - `/meetings-digest --force` — re-extract everything (ignores dedup)
 
 ## What could go wrong
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| "No recordings found" | No Plaud meetings in the past week | Check Plaud directly; record a test meeting |
-| Notion DB empty after run | Integration not connected to parent page | Contact your installer |
-| Weekly rollup page not appearing | Parent page lost the integration permission | Contact your installer |
-| Asked to re-authorize Plaud | OAuth expired (rare; ~once/year) | Contact your installer — they re-run install.sh |
-| Scheduled run didn't fire | Mac was asleep Friday at 5pm | Self-resolves when Mac wakes; or run manually |
-| Same meeting appearing twice | Dedup state was reset; or you ran `--force` | Edit the duplicates manually in Notion |
-| "claude: command not found" | Terminal needs a refresh | Close + reopen Terminal |
+| Meeting in "Uncategorized" folder | Client forgot to state the meeting type at the start | Re-record OR manually move the .docx |
+| No recordings found | No Plaud meetings in the window | Check Plaud; record a test meeting |
+| Asked to re-authorize Plaud | OAuth expired (rare) | Re-run install — it re-OAuths |
+| Scheduled run didn't fire | Computer was asleep at the run time | Self-resolves when it wakes; or run manually |
+| Friday rollup empty | No Kingsway Pharma meetings this week | Expected — nothing to roll up |
+| Same meeting appearing twice | `--force` was used; or dedup state was reset | Edit duplicates manually |
 
-For anything else: contact the Gallant operator who set this up.
+For anything else: contact the Gallant operator who installed this.
 
 ## Privacy
 
-- **Your Plaud transcripts** never leave the chain Plaud → Plaud's MCP server → Claude Code on your Mac → Notion (or your folder)
-- **No data flows to Gallant.** This tool runs entirely on your Mac and writes to your accounts (your Notion, your folder).
-- **The Notion API key** is stored in `~/.claude/skills/meetings-digest/config.json` with file permissions `600` (only you can read it).
-- **The Plaud OAuth token** is stored by the Plaud MCP server in its own credential store.
-
-## Uninstalling
-
-If you want to remove this:
-
-1. Find the original install folder (typically `~/Downloads/plaud-meetings-digest/`)
-2. Open Terminal in that folder, run `./uninstall.sh`
-
-This removes the skill, scheduled job, and config. It does **not** delete your past Notion entries or markdown files — those stay with you.
+- Plaud transcripts go **Plaud → Plaud's MCP server → Claude Code on your computer → your OneDrive / Notion**.
+- **No data flows to Gallant.** Runs entirely on your computer, writes to your accounts.
+- Notion API key (Mac) is stored in `~/.claude/skills/meetings-digest/config.json` with file permissions `600`.
+- Plaud OAuth token is managed by the Plaud MCP server in its own credential store.
 
 ## Versions
 
-- **v1.2.0** — Friday 5:00 PM weekly rollup. Two skills: `/meetings-digest` pulls + extracts action items into Notion; `/weekly-rollup` synthesizes a focused rollup page (top priorities for next week, carry-overs, decisions, themes). Both skills chain in the scheduled Friday run; both available for manual invocation.
-- **v1.1.0** — Twice-daily schedule (deprecated in v1.2.0). Dedup by Plaud file ID.
-- **v1.0.0** — Initial release. Plaud → Notion / folder. Weekly schedule.
+- **v2.0.0** — Cross-platform (Windows + Mac). Meeting-type routing from spoken opening line. Twice-daily ingestion (12:30 PM + 5:00 PM) + Friday 5:30 PM weekly rollup. Windows: Word docs in OneDrive folders. Mac: Notion (unchanged from v1.x). Weekly rollup filters to meeting types flagged `include_in_weekly_rollup: true` (default Kingsway Pharma only).
+- **v1.2.0** — Mac, Notion-only. Friday 5:00 PM weekly rollup chained as `/meetings-digest --days 7` → `/weekly-rollup`.
+- **v1.1.0** — Mac, Notion-only. Twice-daily schedule + dedup.
+- **v1.0.0** — Mac, Notion-only. Friday rollup.
+
+## Uninstall
+
+**Windows**: from `%LOCALAPPDATA%\plaud-meetings-digest\` run `.\uninstall.ps1`
+**Mac**: from `~/Library/Application Support/plaud-meetings-digest/` (or the source folder you installed from) run `./uninstall.sh`
+
+This removes the skill, scheduled tasks, and config. Your past meeting outputs (Word docs in OneDrive, Notion entries) stay with you.
 
 ---
 
-*Built by Gallant Solutions. Questions? Contact the operator who installed this.*
+*Built by Gallant. Questions? Contact the operator who installed this.*
