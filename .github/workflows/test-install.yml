@@ -1,0 +1,180 @@
+name: test-install (windows)
+
+# ============================================================================
+# validate-build companion workflow.
+#
+# Dispatched by the validate-build skill (or manually via the Actions UI).
+# Runs the real bootstrap.ps1 + install.ps1 on a clean windows-latest runner
+# and publishes a validated.json artifact for the skill to consume.
+#
+# Triggered only on:
+#   - workflow_dispatch (manual / skill-driven)
+#   - push to branches matching test/**
+#
+# Never triggers on push to main — that would burn Actions minutes on every
+# commit. The skill creates test/<timestamp> branches for ad-hoc validation.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "What you are validating (free-form)"
+        required: false
+        default: 'manual validate-build run'
+  push:
+    branches:
+      - 'test/**'
+
+permissions:
+  contents: read
+
+jobs:
+  install-and-assert:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print environment info
+        shell: pwsh
+        run: |
+          Write-Host "Runner: $env:RUNNER_OS"
+          Write-Host "PowerShell: $($PSVersionTable.PSVersion)"
+          Write-Host "Architecture: $env:RUNNER_ARCH"
+          winget --version
+
+      - name: Run bootstrap.ps1
+        shell: pwsh
+        env:
+          # Bootstrap downloads + chains into install.ps1. We override the install
+          # location to keep things contained inside the runner workspace.
+          PLAUD_DIGEST_PREFIX: ${{ github.workspace }}\install-target
+        run: |
+          .\bootstrap.ps1
+        continue-on-error: true
+
+      - name: Verify install.ps1 ran
+        id: install_check
+        shell: pwsh
+        run: |
+          $installLog = "$env:LOCALAPPDATA\plaud-meetings-digest\logs\install.log"
+          if (Test-Path $installLog) {
+            Write-Host "install.log present at $installLog"
+            Get-Content $installLog -Tail 50
+          } else {
+            Write-Warning "install.log not found at expected path"
+          }
+
+      - name: Assert scheduled tasks registered
+        id: tasks_check
+        shell: pwsh
+        run: |
+          $expected = @('PlaudMeetingsDigest_Lunch', 'PlaudMeetingsDigest_EOD', 'PlaudMeetingsDigest_Rollup')
+          $found = Get-ScheduledTask | Where-Object { $_.TaskName -in $expected } | Select-Object -ExpandProperty TaskName
+          Write-Host "Expected: $($expected -join ', ')"
+          Write-Host "Found: $($found -join ', ')"
+          $missing = $expected | Where-Object { $_ -notin $found }
+          if ($missing) {
+            Write-Warning "Missing scheduled tasks: $($missing -join ', ')"
+            echo "missing=$($missing -join ',')" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "missing=" >> $env:GITHUB_OUTPUT
+          }
+          echo "found=$($found -join ',')" >> $env:GITHUB_OUTPUT
+
+      - name: Assert skill files landed
+        id: skills_check
+        shell: pwsh
+        run: |
+          $skillsRoot = "$env:USERPROFILE\.claude\skills"
+          if (-not (Test-Path $skillsRoot)) {
+            Write-Warning "Skills root not found at $skillsRoot"
+            echo "skills=" >> $env:GITHUB_OUTPUT
+          } else {
+            $skills = Get-ChildItem $skillsRoot -Directory | Select-Object -ExpandProperty Name
+            Write-Host "Installed skills: $($skills -join ', ')"
+            echo "skills=$($skills -join ',')" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Assert config.json parses
+        id: config_check
+        shell: pwsh
+        run: |
+          $cfg = "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
+          if (-not (Test-Path $cfg)) {
+            Write-Warning "config.json missing at $cfg"
+            echo "parses=false" >> $env:GITHUB_OUTPUT
+          } else {
+            try {
+              $data = Get-Content $cfg -Raw | ConvertFrom-Json
+              Write-Host "config.json parses; version: $($data.version); platform: $($data.platform)"
+              echo "parses=true" >> $env:GITHUB_OUTPUT
+              echo "version=$($data.version)" >> $env:GITHUB_OUTPUT
+              echo "platform=$($data.platform)" >> $env:GITHUB_OUTPUT
+            } catch {
+              Write-Warning "config.json failed to parse: $_"
+              echo "parses=false" >> $env:GITHUB_OUTPUT
+            }
+          }
+
+      - name: Build validated.json
+        shell: pwsh
+        run: |
+          $tasksMissing = '${{ steps.tasks_check.outputs.missing }}'
+          $tasksFound   = '${{ steps.tasks_check.outputs.found }}'
+          $skills       = '${{ steps.skills_check.outputs.skills }}'
+          $cfgParses    = '${{ steps.config_check.outputs.parses }}'
+          $cfgVersion   = '${{ steps.config_check.outputs.version }}'
+          $cfgPlatform  = '${{ steps.config_check.outputs.platform }}'
+
+          $obj = [PSCustomObject]@{
+            runner                          = $env:RUNNER_OS
+            powershell                      = $PSVersionTable.PSVersion.ToString()
+            scheduled_tasks_expected        = @('PlaudMeetingsDigest_Lunch','PlaudMeetingsDigest_EOD','PlaudMeetingsDigest_Rollup')
+            scheduled_tasks_registered      = $tasksFound.Split(',') | Where-Object { $_ -ne '' }
+            scheduled_tasks_missing         = $tasksMissing.Split(',') | Where-Object { $_ -ne '' }
+            skills_installed                = $skills.Split(',') | Where-Object { $_ -ne '' }
+            config_json_parses              = ($cfgParses -eq 'true')
+            config_json_version             = $cfgVersion
+            config_json_platform            = $cfgPlatform
+            timestamp_utc                   = (Get-Date).ToUniversalTime().ToString('o')
+          }
+
+          $obj | ConvertTo-Json -Depth 4 | Set-Content validated.json
+          Write-Host "validated.json contents:"
+          Get-Content validated.json
+
+      - name: Cleanup — unregister scheduled tasks
+        if: always()
+        shell: pwsh
+        run: |
+          $tasks = @('PlaudMeetingsDigest_Lunch', 'PlaudMeetingsDigest_EOD', 'PlaudMeetingsDigest_Rollup')
+          foreach ($t in $tasks) {
+            try {
+              Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue
+            } catch {
+              Write-Host "(cleanup) could not unregister ${t}: $_"
+            }
+          }
+          Write-Host "Scheduled tasks unregistered (best-effort)."
+
+      - name: Upload validated.json artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validated
+          path: validated.json
+          retention-days: 7
+
+      - name: Upload install log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-log
+          path: |
+            ${{ env.LOCALAPPDATA }}\plaud-meetings-digest\logs\install.log
+          if-no-files-found: ignore
+          retention-days: 7
