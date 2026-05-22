@@ -26,8 +26,15 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import platform
+
 CONFIG_PATH = Path.home() / ".claude" / "skills" / "meetings-digest" / "config.json"
-LOG_DIR = Path.home() / "Library" / "Logs"
+
+if platform.system() == "Windows":
+    _local_appdata = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+    LOG_DIR = Path(_local_appdata) / "plaud-meetings-digest" / "logs"
+else:
+    LOG_DIR = Path.home() / "Library" / "Logs"
 LOG_PATH = LOG_DIR / "plaud-meetings-digest.log"
 
 ALLOWED_SKILLS = {"meetings-digest", "weekly-rollup"}
