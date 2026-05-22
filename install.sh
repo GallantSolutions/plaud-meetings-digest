@@ -55,7 +55,9 @@ INSTALL_HINTS=""
 
 check_macos() {
   if [[ "$OSTYPE" != darwin* ]]; then
-    err "This installer is macOS-only. Detected: $OSTYPE"
+    err "install.sh is Mac-only. Detected: $OSTYPE"
+    printf "  On Windows, paste this in PowerShell instead:\n"
+    printf "    %biwr -useb https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.ps1 | iex%b\n" "$BLUE" "$NC"
     exit 1
   fi
   ok "macOS detected"

@@ -4,7 +4,27 @@
 
 **Expected time on the client's machine:** 25–40 minutes (first-time install on a fresh Windows machine; less if Node/Python/Claude Code already exist).
 
-> **One-time setup:** the GitHub repo `GallantSolutions/plaud-meetings-digest` is already published. After this, every client install is a single one-liner — pick the right one below based on the client's OS.
+---
+
+## STEP 0: Pick the right one-liner based on the client's OS
+
+The pipeline is auto-detect end-to-end after this — but the entry point can't be a single command because bash and PowerShell are different shells with incompatible syntax. Pick now, paste in their corresponding shell.
+
+### 🪟 Windows (paste into PowerShell)
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.ps1 | iex
+```
+
+### 🍎 Mac (paste into Terminal)
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.sh)
+```
+
+**Both bootstraps refuse to run on the wrong OS** and print the correct one-liner if you paste the wrong one. From here on, every prereq install, scheduler, output destination, log path, and file path adapts to the client's OS automatically.
+
+---
 
 ---
 

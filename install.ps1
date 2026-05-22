@@ -16,6 +16,16 @@
 #Requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 
+# ---- OS guard --------------------------------------------------------------
+$onWindows = ($env:OS -eq 'Windows_NT') -or ($PSVersionTable.Platform -eq 'Win32NT') -or (-not $PSVersionTable.PSEdition)
+if (-not $onWindows) {
+    Write-Host ""
+    Write-Host "✗ install.ps1 is Windows-only. You appear to be on a different OS." -ForegroundColor Red
+    Write-Host "  On Mac, run: bash ./install.sh" -ForegroundColor Yellow
+    Write-Host ""
+    exit 1
+}
+
 # ---- Colors --------------------------------------------------------------
 function Write-Header { param([string]$Text)
     Write-Host ""

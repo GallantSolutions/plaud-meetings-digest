@@ -21,6 +21,21 @@
 #Requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 
+# ---- OS guard: refuse to run on non-Windows -------------------------------
+# PowerShell Core (pwsh) runs on Mac/Linux too. If someone pasted this on Mac,
+# redirect them to the Mac one-liner so the install path is correct.
+$onWindows = ($env:OS -eq 'Windows_NT') -or ($PSVersionTable.Platform -eq 'Win32NT') -or (-not $PSVersionTable.PSEdition)
+if (-not $onWindows) {
+    Write-Host ""
+    Write-Host "✗ This is the Windows bootstrap, but you're on $($PSVersionTable.OS -or [System.Environment]::OSVersion.Platform)." -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Run this Mac one-liner instead (paste into Terminal, not PowerShell):" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host '  bash <(curl -fsSL https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.sh)' -ForegroundColor Cyan
+    Write-Host ""
+    exit 1
+}
+
 $Repo    = if ($env:PLAUD_DIGEST_REPO)    { $env:PLAUD_DIGEST_REPO }    else { 'GallantSolutions/plaud-meetings-digest' }
 $Version = if ($env:PLAUD_DIGEST_VERSION) { $env:PLAUD_DIGEST_VERSION } else { 'latest' }
 $Prefix  = if ($env:PLAUD_DIGEST_PREFIX)  { $env:PLAUD_DIGEST_PREFIX }  else { (Join-Path $env:LOCALAPPDATA 'plaud-meetings-digest') }

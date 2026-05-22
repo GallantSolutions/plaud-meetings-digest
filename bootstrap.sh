@@ -38,9 +38,14 @@ REPO="${PLAUD_DIGEST_REPO:-GallantSolutions/plaud-meetings-digest}"
 VERSION="${PLAUD_DIGEST_VERSION:-latest}"
 INSTALL_DIR="${PLAUD_DIGEST_PREFIX:-$HOME/Library/Application Support/plaud-meetings-digest}"
 
-# ---- Sanity ----------------------------------------------------------------
+# ---- OS guard: refuse to run on non-Mac -----------------------------------
+# bash runs on Linux + WSL too. If pasted on Windows (via WSL or similar),
+# redirect to the PowerShell one-liner — that's the supported Windows path.
 if [[ "$OSTYPE" != darwin* ]]; then
-  err "macOS-only. Detected: $OSTYPE"
+  err "This is the Mac bootstrap, but you're on $OSTYPE."
+  printf "\n"
+  printf "%bRun this Windows one-liner instead (paste into PowerShell, not bash):%b\n\n" "$YELLOW" "$NC"
+  printf "%b  iwr -useb https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.ps1 | iex%b\n\n" "$BLUE" "$NC"
   exit 1
 fi
 
