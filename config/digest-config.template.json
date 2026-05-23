@@ -1,5 +1,5 @@
 {
-  "version": "2.2.1",
+  "version": "2.2.2",
   "installed_at": null,
   "platform": null,
   "gallant_heartbeat": {
@@ -34,19 +34,25 @@
       {
         "keyword": "Kingsway Pharma",
         "folder": "Kingsway Pharma",
-        "filename_prefix": "KP",
+        "filename_prefix": "KPM",
+        "rollup_filename_prefix": "KPR",
+        "weekly_subfolders": true,
         "include_in_weekly_rollup": true
       },
       {
         "keyword": "Church",
         "folder": "Church",
-        "filename_prefix": "CH",
+        "filename_prefix": "CHM",
+        "rollup_filename_prefix": null,
+        "weekly_subfolders": false,
         "include_in_weekly_rollup": false
       },
       {
         "keyword": "Personal",
         "folder": "Personal",
-        "filename_prefix": "P",
+        "filename_prefix": "PM",
+        "rollup_filename_prefix": null,
+        "weekly_subfolders": false,
         "include_in_weekly_rollup": false
       }
     ],

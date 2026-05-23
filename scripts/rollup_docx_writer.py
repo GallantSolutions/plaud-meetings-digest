@@ -39,7 +39,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -256,41 +256,88 @@ def write_rollup(rollup: dict[str, Any], output_path: Path, warn_days: int, loud
     doc.save(str(output_path))
 
 
-def resolve_filename_prefix(meeting_type: str, config: dict[str, Any]) -> str:
-    """Same lookup as docx_writer.resolve_filename_prefix — kept local
-    to avoid cross-script imports under launchd's restricted PYTHONPATH."""
+def resolve_routing_entry(meeting_type: str, config: dict[str, Any]) -> dict[str, Any]:
+    """Local copy of docx_writer.resolve_routing_entry — keep in sync. We
+    avoid cross-script imports because launchd's restricted PYTHONPATH
+    makes inter-script imports brittle."""
     routing = config.get("meeting_routing", {})
     for entry in routing.get("types", []):
         if entry.get("folder") == meeting_type:
-            return entry.get("filename_prefix", "") or ""
+            return entry
     fallback_folder = routing.get("fallback_folder") or "Uncategorized"
     if meeting_type == fallback_folder:
-        return routing.get("fallback_filename_prefix", "") or ""
-    return ""
+        return {
+            "folder": fallback_folder,
+            "filename_prefix": routing.get("fallback_filename_prefix", "") or "",
+            "rollup_filename_prefix": None,
+            "weekly_subfolders": False,
+            "include_in_weekly_rollup": False,
+        }
+    return {}
+
+
+def week_folder_name(recorded: datetime, prefix: str) -> str:
+    """Local copy of docx_writer.week_folder_name — keep in sync."""
+    iso_year, iso_week, iso_weekday = recorded.isocalendar()
+    monday = recorded - timedelta(days=iso_weekday - 1)
+    friday = monday + timedelta(days=4)
+    if monday.month == friday.month:
+        date_range = f"{monday.strftime('%b')} {monday.day}-{friday.day}, {monday.year}"
+    else:
+        date_range = f"{monday.strftime('%b')} {monday.day}-{friday.strftime('%b')} {friday.day}, {monday.year}"
+    if prefix:
+        return f"{prefix}.{date_range} (Week {iso_week})"
+    return f"{date_range} (Week {iso_week})"
 
 
 def resolve_output_path(rollup: dict[str, Any], base_dir: Path, config: dict[str, Any]) -> Path:
     """
-    Rollup filename format (v2.2.1+): '{prefix}.Weekly Rollup ({year}-W{ww}).docx'
-      e.g. 'KP.Weekly Rollup (2026-W21).docx'
+    Rollup goes inside the same per-week subfolder as the week's meeting
+    files (when the meeting type has weekly_subfolders=true). Filename uses
+    the type's rollup_filename_prefix (e.g. 'KPR').
 
-    Falls back to '{year}-W{ww} {meeting_type} Weekly Rollup.docx' if no
-    prefix is configured (pre-v2.2.1 installs).
+    Folder:   base / 'Plaud Meetings' / {meeting_type} / {KPM.<date range>, <year> (Week <N>)}/
+    Filename: '{rollup_prefix}.{date range}, {year} (Week {N}).docx'
+              e.g. 'KPR.May 25-29, 2026 (Week 22).docx'
+
+    Backwards compat: if the type has weekly_subfolders=false OR no
+    rollup_filename_prefix is set, falls back to the v2.2.1 location at
+    {meeting_type}/_weekly/{meeting_filename_prefix}.Weekly Rollup
+    ({year}-W{ww}).docx. (Realistically rollups only run for types with
+    include_in_weekly_rollup=true, which currently means Kingsway Pharma
+    which uses the new path; the fallback is for future-flexibility.)
     """
     mtype = rollup.get("meeting_type") or "Untitled"
     week_start_iso = rollup.get("week_start", datetime.now().strftime("%Y-%m-%d"))
     try:
-        dt = datetime.fromisoformat(week_start_iso)
-        year, week, _ = dt.isocalendar()
+        week_start_dt = datetime.fromisoformat(week_start_iso)
     except ValueError:
-        year, week = datetime.now().year, 0
+        week_start_dt = datetime.now()
+    iso_year, iso_week, _ = week_start_dt.isocalendar()
 
-    folder = base_dir / "Plaud Meetings" / sanitize_filename(mtype, 40) / "_weekly"
-    prefix = resolve_filename_prefix(mtype, config)
-    if prefix:
-        filename = f"{prefix}.Weekly Rollup ({year}-W{week:02d}).docx"
+    entry = resolve_routing_entry(mtype, config)
+    meeting_prefix = entry.get("filename_prefix", "") or ""
+    rollup_prefix = entry.get("rollup_filename_prefix") or ""
+    weekly_subfolders = bool(entry.get("weekly_subfolders"))
+
+    mtype_folder = base_dir / "Plaud Meetings" / sanitize_filename(mtype, 40)
+
+    if weekly_subfolders and rollup_prefix:
+        # New layout (v2.2.2+): rollup lives inside the week folder
+        week_folder = mtype_folder / sanitize_filename(week_folder_name(week_start_dt, meeting_prefix), 90)
+        # Filename uses the rollup prefix + same date-range label
+        # Build the date-range part WITHOUT the meeting prefix (since the
+        # filename uses the rollup prefix instead)
+        date_range_part = week_folder_name(week_start_dt, "").lstrip(".").strip()
+        filename = f"{rollup_prefix}.{date_range_part}.docx"
+        return week_folder / filename
+
+    # Backwards-compat fallback (pre-v2.2.2 or types without rollup prefix)
+    folder = mtype_folder / "_weekly"
+    if meeting_prefix:
+        filename = f"{meeting_prefix}.Weekly Rollup ({iso_year}-W{iso_week:02d}).docx"
     else:
-        filename = f"{year}-W{week:02d} {sanitize_filename(mtype, 40)} Weekly Rollup.docx"
+        filename = f"{iso_year}-W{iso_week:02d} {sanitize_filename(mtype, 40)} Weekly Rollup.docx"
     return folder / filename
 
 

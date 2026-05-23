@@ -190,7 +190,32 @@ Write it to a tempfile, then invoke:
 python3 ~/.claude/skills/meetings-digest/scripts/docx_writer.py --input /tmp/meeting-<file_id>.json
 ```
 
-The script computes the output path automatically: `{onedrive_folder}/Plaud Meetings/{meeting_type}/{prefix}.{title} ({attendees}).docx` — e.g. `OneDrive/Plaud Meetings/Kingsway Pharma/KP.Q3 Plans (John Smith).docx`. The `{prefix}` is read from `config.meeting_routing.types[].filename_prefix` (KP / CH / P by default; UN for the Uncategorized fallback folder). Same-title collisions get a date suffix appended automatically. Prints the resolved path on success.
+The script computes the output path automatically. Layout depends on the meeting type's `weekly_subfolders` flag:
+
+- **`weekly_subfolders: true`** (default for Kingsway Pharma): files get bucketed into a per-week subfolder.
+  ```
+  OneDrive/Plaud Meetings/Kingsway Pharma/
+    KPM.May 25-29, 2026 (Week 22)/
+      KPM.Q3 Plans (John Smith).docx
+      KPM.Pricing Pushback (Sarah Jones, Mark Lee).docx
+      KPR.May 25-29, 2026 (Week 22).docx     ← rollup lives in the same week folder
+  ```
+
+- **`weekly_subfolders: false`** (default for Church + Personal): flat layout.
+  ```
+  OneDrive/Plaud Meetings/Personal/
+    PM.Dentist Reminder.docx
+  ```
+
+Prefix conventions (the trailing M disambiguates meeting files from any other files the client keeps with the same 2-letter prefix — `KP` could be many things, `KPM` is unambiguously a Plaud meeting):
+
+- `KPM.` — Kingsway Pharma Meeting (per-meeting file)
+- `KPR.` — Kingsway Pharma Rollup (weekly synthesis file)
+- `CHM.` — Church Meeting
+- `PM.`  — Personal Meeting
+- `UN.`  — Uncategorized (fallback when routing fails)
+
+Same-title collisions get a date suffix appended automatically. Prints the resolved path on success.
 
 ### Mode B: `notion` (Mac default)
 
@@ -326,9 +351,9 @@ Do NOT paste the full digest into the chat — it belongs in the Word docs.
     "enabled": true,
     "scan_first_seconds": 30,
     "types": [
-      {"keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "filename_prefix": "KP", "include_in_weekly_rollup": true},
-      {"keyword": "Church",          "folder": "Church",          "filename_prefix": "CH", "include_in_weekly_rollup": false},
-      {"keyword": "Personal",        "folder": "Personal",        "filename_prefix": "P",  "include_in_weekly_rollup": false}
+      {"keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "filename_prefix": "KPM", "rollup_filename_prefix": "KPR", "weekly_subfolders": true,  "include_in_weekly_rollup": true},
+      {"keyword": "Church",          "folder": "Church",          "filename_prefix": "CHM", "rollup_filename_prefix": null, "weekly_subfolders": false, "include_in_weekly_rollup": false},
+      {"keyword": "Personal",        "folder": "Personal",        "filename_prefix": "PM",  "rollup_filename_prefix": null, "weekly_subfolders": false, "include_in_weekly_rollup": false}
     ],
     "fallback_folder": "Uncategorized",
     "fallback_filename_prefix": "UN"

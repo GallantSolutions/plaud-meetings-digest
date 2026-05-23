@@ -56,9 +56,9 @@ There are three keywords for you:
 
 **Also say who you're with.** Names you speak in the opening line end up in the filename, so you can scan your OneDrive folder and instantly see which Kingsway Pharma meeting was which.
 
-> "Kingsway Pharma meeting with **John Smith and Sarah Jones** about Q3 plans" → file lands as `KP.Q3 Plans (John Smith, Sarah Jones).docx`
+> "Kingsway Pharma meeting with **John Smith and Sarah Jones** about Q3 plans" → file lands as `KPM.Q3 Plans (John Smith, Sarah Jones).docx`
 
-If you forget to name them, the file just gets the topic — `KP.Q3 Plans.docx` — which is still fine, just less scannable later.
+If you forget to name them, the file just gets the topic — `KPM.Q3 Plans.docx` — which is still fine, just less scannable later.
 
 ### 2. Lock your computer at end of day — don't sign out
 
@@ -79,26 +79,40 @@ Open OneDrive on your computer. Look for a folder called **Plaud Meetings**. Ins
 ```
 OneDrive/
   Plaud Meetings/
-    Kingsway Pharma/        ← work meetings land here
-      KP.Q3 Plans (John Smith).docx
-      KP.Pricing Pushback (Sarah Jones, Mark Lee).docx
-      KP.Compounding Demo (John Smith).docx
-      _weekly/              ← Friday rollups land here
-        KP.Weekly Rollup (2026-W21).docx
-    Church/                 ← church reflections
-      CH.Sermon on Patience.docx
-    Personal/               ← personal notes
-      P.Dentist Reminder.docx
+    Kingsway Pharma/        ← work meetings — bucketed by work week
+      KPM.May 25-29, 2026 (Week 22)/
+        KPM.Q3 Plans (John Smith).docx
+        KPM.Pricing Pushback (Sarah Jones, Mark Lee).docx
+        KPM.Compounding Demo (John Smith).docx
+        KPR.May 25-29, 2026 (Week 22).docx     ← Friday rollup lives in the week folder
+      KPM.Jun 1-5, 2026 (Week 23)/
+        KPM.Q3 Plans Follow-Up (John Smith).docx
+        KPR.Jun 1-5, 2026 (Week 23).docx
+    Church/                 ← church reflections — flat layout
+      CHM.Sermon on Patience.docx
+    Personal/               ← personal notes — flat layout
+      PM.Dentist Reminder.docx
     Uncategorized/          ← meetings where you forgot the keyword
       UN.Untitled.docx
 ```
 
 **Filename format:** `<prefix>.<topic> (<who you met with>).docx`
 
-- `KP.` = Kingsway Pharma · `CH.` = Church · `P.` = Personal · `UN.` = Uncategorized
-- The topic is a short 3-6 word summary (the system writes this for you — you don't have to do anything)
+Prefix conventions — the trailing `M` (or `R`) tells you instantly what kind of file it is, even if you have other files in OneDrive that happen to start with `KP`, `CH`, or `P`:
+
+- `KPM.` = Kingsway Pharma **Meeting** (per-meeting note)
+- `KPR.` = Kingsway Pharma **Rollup** (the Friday weekly summary)
+- `CHM.` = Church Meeting
+- `PM.`  = Personal Meeting
+- `UN.`  = Uncategorized
+
+How files are organized:
+
+- **Kingsway Pharma meetings** get bucketed into a folder for each work week (Mon-Fri). Anything you recorded May 25-29 (or that weekend) lands in `KPM.May 25-29, 2026 (Week 22)/`. The Friday rollup for that week also lands in the same folder, so all your week-22 stuff is in one place — open one folder, see the meetings + the rollup that synthesizes them.
+- **Church and Personal** stay flat — files sit directly in the folder, no week subfolders. (Easier to scan when you only have one or two files per week.)
+- The topic in the filename is a short 3-6 word summary — the system writes this for you, you don't have to do anything.
 - Attendee names come from your spoken opening line ("Kingsway Pharma meeting with **John Smith and Sarah Jones** about Q3" → `(John Smith, Sarah Jones)`)
-- Solo recordings (Personal, Church) just get `P.Topic.docx` with no attendees in the name
+- Solo recordings (Personal, Church) just get `PM.Topic.docx` with no attendees in the name
 
 Click any `.docx` to open it in Word. Each document has:
 
@@ -112,11 +126,13 @@ You can rename files, move them, edit them — they're yours. The system doesn't
 
 ### The Friday weekly rollup
 
-Every Friday at 5:30 PM, you get a one-page document at:
+Every Friday at 5:30 PM, you get a one-page document inside that week's folder:
 
 ```
-OneDrive/Plaud Meetings/Kingsway Pharma/_weekly/KP.Weekly Rollup (2026-W##).docx
+OneDrive/Plaud Meetings/Kingsway Pharma/KPM.<this week>, 2026 (Week ##)/KPR.<this week>, 2026 (Week ##).docx
 ```
+
+So all of week 22's Kingsway Pharma meetings AND the rollup that summarizes them live together in the `KPM.May 25-29, 2026 (Week 22)/` folder. Click the folder, see the week's work + the rollup, done.
 
 This is the most important file of your week. It synthesizes everything from your Kingsway Pharma meetings that week:
 
@@ -194,9 +210,11 @@ This requires the computer to be on, signed in (lock screen is fine), and connec
 
 **END OF DAY:** Lock the screen (`Windows key + L`). Don't sign out.
 
-**FIND YOUR MEETINGS:** OneDrive → Plaud Meetings → the folder matching your keyword.
+**FIND YOUR MEETINGS:** OneDrive → Plaud Meetings → the folder matching your keyword. Kingsway Pharma meetings are bucketed by work week: `KPM.May 25-29, 2026 (Week 22)/`.
 
-**THE FRIDAY ROLLUP:** OneDrive → Plaud Meetings → Kingsway Pharma → _weekly. Read it Saturday morning.
+**THE FRIDAY ROLLUP:** Same week folder as that week's meetings. File starts with `KPR.` instead of `KPM.`. Read it Saturday morning.
+
+**FILENAME CHEAT SHEET:** `KPM.` = Kingsway Pharma Meeting · `KPR.` = Kingsway Pharma Rollup · `CHM.` = Church · `PM.` = Personal · `UN.` = Uncategorized.
 
 **ACTION ITEMS:** Open any `.docx`. Look for `☐` checkboxes. Tick them off as you finish.
 

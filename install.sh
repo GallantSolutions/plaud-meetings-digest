@@ -253,22 +253,26 @@ printf "When the client starts each Plaud recording, they state the meeting type
 printf "(e.g., 'Kingsway Pharma meeting with John Smith'). The skill matches the\n"
 printf "spoken opening line against keywords to route to the right folder/group.\n\n"
 printf "Default meeting types:\n"
-printf "  • Kingsway Pharma   → folder 'Kingsway Pharma'   → filename prefix 'KP'  → INCLUDED in Friday rollup\n"
-printf "  • Church            → folder 'Church'            → filename prefix 'CH'  → excluded from rollup\n"
-printf "  • Personal          → folder 'Personal'          → filename prefix 'P'   → excluded from rollup\n\n"
-printf "  Files land as: KP.<short title> (<attendees>).docx  e.g. KP.Q3 Plans (John Smith).docx\n\n"
+printf "  • Kingsway Pharma   → folder 'Kingsway Pharma'   → 'KPM' (meetings) + 'KPR' (rollup)  → per-week subfolders → INCLUDED in Friday rollup\n"
+printf "  • Church            → folder 'Church'            → 'CHM' (meetings)                   → flat layout         → excluded from rollup\n"
+printf "  • Personal          → folder 'Personal'          → 'PM' (meetings)                    → flat layout         → excluded from rollup\n\n"
+printf "  Files land as: {prefix}.{short topic} ({attendees}).docx\n"
+printf "    e.g. Kingsway Pharma/KPM.May 25-29, 2026 (Week 22)/KPM.Q3 Plans (John Smith).docx\n"
+printf "    rollup: Kingsway Pharma/KPM.May 25-29, 2026 (Week 22)/KPR.May 25-29, 2026 (Week 22).docx\n\n"
 read -p "Use these defaults? [Y/n]: " ROUTING_CHOICE
 ROUTING_CHOICE="${ROUTING_CHOICE:-Y}"
 
 ROUTING_JSON='[
-  { "keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "filename_prefix": "KP", "include_in_weekly_rollup": true },
-  { "keyword": "Church",          "folder": "Church",          "filename_prefix": "CH", "include_in_weekly_rollup": false },
-  { "keyword": "Personal",        "folder": "Personal",        "filename_prefix": "P",  "include_in_weekly_rollup": false }
+  { "keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "filename_prefix": "KPM", "rollup_filename_prefix": "KPR", "weekly_subfolders": true,  "include_in_weekly_rollup": true  },
+  { "keyword": "Church",          "folder": "Church",          "filename_prefix": "CHM", "rollup_filename_prefix": null,  "weekly_subfolders": false, "include_in_weekly_rollup": false },
+  { "keyword": "Personal",        "folder": "Personal",        "filename_prefix": "PM",  "rollup_filename_prefix": null,  "weekly_subfolders": false, "include_in_weekly_rollup": false }
 ]'
 
 if [[ "$ROUTING_CHOICE" =~ ^[Nn]$ ]]; then
-  printf "\nEnter meeting types one per line: keyword|folder|filename_prefix|include_in_rollup (yes/no)\n"
-  printf "Example: Kingsway Pharma|Kingsway Pharma|KP|yes\n"
+  printf "\nEnter meeting types one per line, 6 pipe-separated fields:\n"
+  printf "  keyword|folder|filename_prefix|rollup_filename_prefix_or_none|weekly_subfolders(yes/no)|include_in_rollup(yes/no)\n"
+  printf "Example: Kingsway Pharma|Kingsway Pharma|KPM|KPR|yes|yes\n"
+  printf "Example: Personal|Personal|PM|none|no|no\n"
   printf "Blank line to finish.\n\n"
   ITEMS="["
   FIRST=1
@@ -276,14 +280,18 @@ if [[ "$ROUTING_CHOICE" =~ ^[Nn]$ ]]; then
     read -p "Meeting type: " LINE
     if [[ -z "$LINE" ]]; then break; fi
     IFS='|' read -ra PARTS <<< "$LINE"
-    if [[ ${#PARTS[@]} -ne 4 ]]; then warn "Format: keyword|folder|filename_prefix|yes-or-no"; continue; fi
+    if [[ ${#PARTS[@]} -ne 6 ]]; then warn "Need 6 pipe-separated fields"; continue; fi
     KW="${PARTS[0]}"
     FOLDER="${PARTS[1]}"
     PREFIX="${PARTS[2]}"
-    INCL="${PARTS[3]}"
+    ROLLUP_PREFIX="${PARTS[3]}"
+    WEEKLY_SUB="${PARTS[4]}"
+    INCL="${PARTS[5]}"
+    if [[ "$ROLLUP_PREFIX" == "none" || -z "$ROLLUP_PREFIX" ]]; then ROLLUP_PREFIX_JSON="null"; else ROLLUP_PREFIX_JSON="\"$ROLLUP_PREFIX\""; fi
+    if [[ "$WEEKLY_SUB" == "yes" ]]; then WEEKLY_BOOL="true"; else WEEKLY_BOOL="false"; fi
     if [[ "$INCL" == "yes" ]]; then INCL_BOOL="true"; else INCL_BOOL="false"; fi
     if [[ $FIRST -eq 0 ]]; then ITEMS+=","; fi
-    ITEMS+=$(printf '\n  {"keyword":"%s","folder":"%s","filename_prefix":"%s","include_in_weekly_rollup":%s}' "$KW" "$FOLDER" "$PREFIX" "$INCL_BOOL")
+    ITEMS+=$(printf '\n  {"keyword":"%s","folder":"%s","filename_prefix":"%s","rollup_filename_prefix":%s,"weekly_subfolders":%s,"include_in_weekly_rollup":%s}' "$KW" "$FOLDER" "$PREFIX" "$ROLLUP_PREFIX_JSON" "$WEEKLY_BOOL" "$INCL_BOOL")
     FIRST=0
   done
   ITEMS+="\n]"
