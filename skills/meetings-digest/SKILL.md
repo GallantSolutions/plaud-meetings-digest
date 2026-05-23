@@ -96,6 +96,21 @@ Recording opens with "Kingsway Pharma meeting with John Smith…" → routes to 
 
 For each transcript, identify these categories. Stay disciplined — only include items the transcript actually supports.
 
+### Recap (v2.2.4+)
+
+**A 2-3 sentence executive summary of what the meeting was ABOUT and what came out of it.** Renders at the top of the Word document — the operator scans it in 5 seconds before deciding whether to read the rest. Professional pharma tone — no marketing language, no filler.
+
+Good:
+- "Reviewed Q3 forecast scenarios with John Smith. Aligned on the conservative case given regulatory uncertainty. John to circulate updated deck by Friday; Garrett to confirm Q4 commit numbers Monday."
+- "Pricing pushback from Sarah's team on the new tier structure. Agreed to consolidate from 5 tiers to 3, with operational sign-off required from Sarah's group before the proposal goes out."
+
+Bad:
+- "Had a great conversation about Q3." — too vague, no specifics
+- "John said X. Then Sarah said Y. Then we talked about Z. Then..." — turn-by-turn replay; the action items + decisions sections cover that
+- "It was a productive meeting that covered many important topics." — marketing-speak filler
+
+Set as `recap` in the JSON input to docx_writer.py.
+
 ### Meeting title (the filename component)
 
 **A short, operator-meaningful 3-6 word summary of what the meeting was ABOUT.** This is what shows up in the filename (e.g., `KP.Q3 Plans (John Smith).docx` — the title is `Q3 Plans`). The operator needs to scan a OneDrive folder and instantly remember which meeting was which.
@@ -172,6 +187,7 @@ For each processed recording, build a JSON object matching the `docx_writer.py` 
   "meeting_type": "Kingsway Pharma",
   "recording_title": "Q3 Plans",
   "attendees": ["John Smith"],
+  "recap": "Reviewed Q3 forecast scenarios with John Smith. Aligned on the conservative case given regulatory uncertainty. John to circulate updated deck by Friday.",
   "recorded_at": "2026-05-22T14:30:00-04:00",
   "duration_minutes": 47.3,
   "speakers": ["Garrett", "John Smith"],

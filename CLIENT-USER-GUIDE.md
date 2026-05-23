@@ -1,239 +1,250 @@
-# Plaud Meetings — Your User Guide
+# Plaud Meetings — User Guide
 
 **Prepared by Gallant Solutions**
 **Support:** hello@gallant.solutions
 
 ---
 
-## What this system does for you
+## What this system does
 
 You record meetings on your Plaud device the way you always have.
 
-Twice a day, this system automatically:
+Twice each weekday, this system automatically:
 
 1. Pulls your new Plaud recordings
-2. Reads them
-3. Pulls out the action items, decisions, and key quotes
-4. Drops a clean Word document into the right OneDrive folder
+2. Re-reads the transcripts
+3. Extracts a recap, action items, decisions, open questions, and notable quotes
+4. Writes a clean Word document into the correct OneDrive folder
 
-Every Friday afternoon, it writes you a one-page weekly rollup of your Kingsway Pharma meetings — read it over the weekend, walk into Monday ready.
+Each Friday afternoon, it synthesizes a one-page weekly rollup of your Kingsway Pharma meetings — designed to be read over the weekend so Monday starts with priorities locked.
 
-**You don't need to open anything, click anything, or remember anything technical.** You just have to do two small things on your end. They're on the next page.
+You do not need to open anything, click anything, or remember anything technical. You do need to do two small things on your end, described on the next page.
 
 ---
 
-## The only two things you need to do
+## What you need to do
 
-### 1. Say the meeting type at the very start of every recording
+### 1. State the meeting type at the start of every recording
 
-This is the most important habit. The system listens to the **first 30 seconds** of each recording. If it hears one of three keywords, it routes the meeting to the right folder. If it doesn't, the meeting ends up in an "Uncategorized" folder and you have to move it by hand.
+This is the single most important habit. The system reads the first 30 seconds of each recording and routes it to the right folder based on a keyword. If no keyword is detected, the meeting lands in an "Uncategorized" folder and you have to move it by hand.
 
-There are three keywords for you:
+There are three keywords:
 
-- **Kingsway Pharma** — goes to the Kingsway Pharma folder, IS included in the Friday rollup
-- **Church** — goes to the Church folder, NOT in the rollup
-- **Personal** — goes to the Personal folder, NOT in the rollup
+- **Kingsway Pharma** — routes to the Kingsway Pharma folder, included in the Friday weekly rollup
+- **Church** — routes to the Church folder, not in the rollup
+- **Personal** — routes to the Personal folder, not in the rollup
 
-**Examples that work:**
+**Lines that work:**
 
-> ✅ "Kingsway Pharma meeting with John Smith, we're going over Q3 plans."
+> "Kingsway Pharma meeting with John Smith, going over Q3 plans."
 >
-> ✅ "Kingsway Pharma call with Sarah from medical affairs."
+> "Kingsway Pharma call with Sarah from medical affairs."
 >
-> ✅ "Church reflection — this week's sermon was about patience."
+> "Church reflection — this week's sermon was about patience."
 >
-> ✅ "Personal note, reminder to book the dentist for the kids."
+> "Personal note, reminder to book the dentist."
 
-**Examples that do NOT work** (these route to Uncategorized):
+**Lines that do not work** (these route to Uncategorized):
 
-> ❌ "Hey, so I wanted to talk about the Q3 numbers..."
+> "So I wanted to talk about the Q3 numbers..."
 >
-> ❌ "Just thinking out loud here..."
+> "Just thinking out loud here..."
 >
-> ❌ "Meeting with John about Kingsway Pharma." *(keyword too late — say it FIRST)*
+> "Meeting with John about Kingsway Pharma." — keyword is too late; say it first
 
-**The rule:** Within the first ~10 seconds of pressing record, your second or third word should be one of `Kingsway Pharma`, `Church`, or `Personal`. After that, talk about whatever you want — who you're with, what it's about, what was decided.
+**The rule:** within the first ten seconds of pressing record, one of `Kingsway Pharma`, `Church`, or `Personal` must be spoken. After that, talk about whatever you want — who you are with, what it is about, what was decided.
 
-**Also say who you're with.** Names you speak in the opening line end up in the filename, so you can scan your OneDrive folder and instantly see which Kingsway Pharma meeting was which.
+**Name your attendees in the opening line.** Names you speak appear in the filename, which makes scanning OneDrive much easier later.
 
 > "Kingsway Pharma meeting with **John Smith and Sarah Jones** about Q3 plans" → file lands as `KPM.Q3 Plans (John Smith, Sarah Jones).docx`
 
-If you forget to name them, the file just gets the topic — `KPM.Q3 Plans.docx` — which is still fine, just less scannable later.
+If you forget to name attendees, the file still gets the topic — `KPM.Q3 Plans.docx` — and remains usable, just less scannable.
 
-### 2. Lock your computer at end of day — don't sign out
+### 2. Lock your computer at end of day — do not sign out
 
-The system runs on your computer in the background. It only works when you're signed in. If you sign out fully, the scheduled pulls won't fire.
+The system runs in the background on your computer. It only works while you are signed in. If you sign out, the scheduled pulls do not fire.
 
-- **At end of day:** press `Windows key + L` to lock the screen. That's it. Walk away.
-- **Closing your laptop lid** is fine — the computer sleeps and wakes up when needed.
-- **Don't click "Sign out"** unless someone has asked you to. (You can shut down the computer when you want; missed runs catch up when you turn it back on.)
+- **At end of day:** press `Windows key + L` to lock the screen.
+- **Closing the laptop lid is fine** — the computer sleeps and wakes when needed.
+- **Do not click "Sign out"** unless asked. You can shut down the computer when you want; missed runs catch up when you start it again.
 
-That's it. Those are the only two things you have to remember.
+That is the complete user-side checklist. Two habits, both passive.
 
 ---
 
 ## Where your meetings appear
 
-Open OneDrive on your computer. Look for a folder called **Plaud Meetings**. Inside it:
+Open OneDrive. Look for a folder named **Plaud Meetings**. Inside:
 
 ```
 OneDrive/
   Plaud Meetings/
-    Kingsway Pharma/        ← work meetings — bucketed by work week
+    Kingsway Pharma/                          [bucketed by work week]
       KPM.May 25-29, 2026 (Week 22)/
         KPM.Q3 Plans (John Smith).docx
         KPM.Pricing Pushback (Sarah Jones, Mark Lee).docx
         KPM.Compounding Demo (John Smith).docx
-        KPR.May 25-29, 2026 (Week 22).docx     ← Friday rollup lives in the week folder
+        KPR.May 25-29, 2026 (Week 22).docx   [weekly rollup]
       KPM.Jun 1-5, 2026 (Week 23)/
         KPM.Q3 Plans Follow-Up (John Smith).docx
         KPR.Jun 1-5, 2026 (Week 23).docx
-    Church/                 ← church reflections — flat layout
+    Church/                                   [flat layout]
       CHM.Sermon on Patience.docx
-    Personal/               ← personal notes — flat layout
+    Personal/                                 [flat layout]
       PM.Dentist Reminder.docx
-    Uncategorized/          ← meetings where you forgot the keyword
+    Uncategorized/                            [keyword missing]
       UN.Untitled.docx
 ```
 
-**Filename format:** `<prefix>.<topic> (<who you met with>).docx`
+### Filename convention
 
-Prefix conventions — the trailing `M` (or `R`) tells you instantly what kind of file it is, even if you have other files in OneDrive that happen to start with `KP`, `CH`, or `P`:
+`<prefix>.<topic> (<attendees>).docx`
 
-- `KPM.` = Kingsway Pharma **Meeting** (per-meeting note)
-- `KPR.` = Kingsway Pharma **Rollup** (the Friday weekly summary)
-- `CHM.` = Church Meeting
-- `PM.`  = Personal Meeting
-- `UN.`  = Uncategorized
+The trailing letter on each prefix identifies the file kind, so they are unambiguous even if you keep other files in OneDrive that happen to begin with the same two letters:
 
-How files are organized:
+| Prefix | Meaning |
+|---|---|
+| `KPM.` | Kingsway Pharma **Meeting** (single meeting note) |
+| `KPR.` | Kingsway Pharma **Rollup** (Friday weekly summary) |
+| `CHM.` | Church Meeting |
+| `PM.`  | Personal Meeting |
+| `UN.`  | Uncategorized |
 
-- **Kingsway Pharma meetings** get bucketed into a folder for each work week (Mon-Fri). Anything you recorded May 25-29 (or that weekend) lands in `KPM.May 25-29, 2026 (Week 22)/`. The Friday rollup for that week also lands in the same folder, so all your week-22 stuff is in one place — open one folder, see the meetings + the rollup that synthesizes them.
-- **Church and Personal** stay flat — files sit directly in the folder, no week subfolders. (Easier to scan when you only have one or two files per week.)
-- The topic in the filename is a short 3-6 word summary — the system writes this for you, you don't have to do anything.
-- Attendee names come from your spoken opening line ("Kingsway Pharma meeting with **John Smith and Sarah Jones** about Q3" → `(John Smith, Sarah Jones)`)
-- Solo recordings (Personal, Church) just get `PM.Topic.docx` with no attendees in the name
+### How files are organized
 
-Click any `.docx` to open it in Word. Each document has:
+- **Kingsway Pharma meetings** are bucketed by work week (Monday through Friday). A meeting recorded any time May 25–29, 2026 — including weekend recordings within that ISO week — lands in `KPM.May 25-29, 2026 (Week 22)/`. The Friday weekly rollup for that week lives in the same folder. One folder represents one week's worth of work.
+- **Church and Personal** are flat — files sit directly in the folder with no week subfolders. Sparse-volume content does not need bucketing.
+- The topic in the filename is a three- to six-word summary written by the system from the meeting content. You do not enter it.
+- Attendee names come from the opening line. Solo recordings produce filenames without parentheses.
 
-- **Recap** — a clean 2-3 sentence summary of the meeting
-- **Action items** — rendered as `☐` checklist boxes you can tick off as you complete them
-- **Decisions made** — anything that was settled in the meeting
-- **Open questions** — anything that came up and didn't get resolved
-- **Key quotes** — important things people actually said, verbatim
+### What is inside each meeting document
 
-You can rename files, move them, edit them — they're yours. The system doesn't reach back into OneDrive once a meeting has been written.
+Each per-meeting `.docx` is a one- to two-page document with:
 
-### The Friday weekly rollup
+- **Title block** — meeting type, topic, attendees, date, duration
+- **Recap** — a two- to three-sentence executive summary
+- **Action items** — each with `[ ]` checkbox, owner, due date, priority
+- **Decisions recorded** — what was decided and why
+- **Open questions** — anything raised but unresolved
+- **Notable quotes** — verbatim statements worth preserving
 
-Every Friday at 5:30 PM, you get a one-page document inside that week's folder:
+To mark an action item complete: open the document in Word, change `[ ]` to `[x]`, save. The system does not auto-detect completion — your edits are for your own tracking.
 
-```
-OneDrive/Plaud Meetings/Kingsway Pharma/KPM.<this week>, 2026 (Week ##)/KPR.<this week>, 2026 (Week ##).docx
-```
+### What is inside the Friday weekly rollup
 
-So all of week 22's Kingsway Pharma meetings AND the rollup that summarizes them live together in the `KPM.May 25-29, 2026 (Week 22)/` folder. Click the folder, see the week's work + the rollup, done.
+The weekly rollup opens with **Open Items from Prior Weeks** rendered as a 4-column table sorted oldest-first:
 
-**What's at the TOP of the rollup:** the first section is `⏱️ Still open from prior weeks — action needed`. It lists every action item from the past 30 days that you haven't closed out yet, sorted oldest-first. Items >14 days old get a `⚠️`, items >21 days old get a `🚨`. If you've cleaned everything up, you'll see `✅ Clean slate` — which is a good week. This section is designed to confront you with stuck commitments BEFORE you plan next week's focus.
+| Action Item | Days Open | Status | Source Meeting |
 
-This is the most important file of your week. It synthesizes everything from your Kingsway Pharma meetings that week:
+The Status column uses three text labels:
 
-- The top 5 things you said you'd do this week
-- Anything you said you'd do that's been carrying over for 14+ days (red flag)
-- Open questions you still need to answer
-- Key themes / patterns
+- **CRITICAL** — open 21+ days
+- **ATTENTION** — open 14+ days
+- **OPEN** — open under 14 days
 
-Read this Saturday morning with coffee. It will set up your Monday.
+This section is intentionally at the top of the document. Stuck commitments across weeks are the highest-leverage information; confront them before planning next week's focus.
+
+If you have closed everything out, the section reads simply: "All prior-week items closed. No carry-overs this week."
+
+Subsequent sections, in order:
+
+1. Next Week's Focus Picks — 3 to 5 high-leverage items with rationale
+2. High Priority (This Week)
+3. Action Items by Context — grouped by category
+4. Decisions Recorded
+5. Open Questions
+6. Observations — recurring patterns the system identified
+7. Summary — one-line totals
 
 ---
 
-## When things look off
+## When something looks off
 
 ### A meeting landed in the "Uncategorized" folder
 
-You forgot to say the keyword at the start of the recording. Two options:
+The keyword was not stated at the start. Two options:
 
-1. **Re-record it** (if you can — sometimes you can't).
-2. **Manually move the `.docx`** from Uncategorized into the right folder (drag-and-drop in OneDrive).
+1. Re-record if possible.
+2. Manually move the `.docx` from `Uncategorized/` into the correct folder.
 
-Don't worry about this happening once in a while. The system tracks it. If it starts happening every day, the support team will reach out to retrain you.
+Occasional misses are normal. If it starts happening regularly, contact support and we will revisit the keyword set.
 
-### A meeting didn't appear at all
+### A meeting did not appear at all
 
-Wait until after the next scheduled pull (12:30 PM or 5:00 PM that day). The system catches up on whatever's there. If you recorded at 11 AM, it'll appear after 12:30 PM. If you recorded at 4 PM, it'll appear after 5:00 PM.
+Wait until after the next scheduled pull (12:30 PM or 5:00 PM that day). The system catches up on whatever is in Plaud. A recording made at 11:00 AM will appear after 12:30 PM. A recording made at 4:00 PM will appear after 5:00 PM.
 
-**If it still hasn't appeared by the next morning:** email Gallant support (`hello@gallant.solutions`). Don't try to "fix" it yourself.
+If it still has not appeared by the next morning, email `hello@gallant.solutions`. Do not attempt to fix it yourself.
 
 ### The Friday rollup is empty
 
-That just means you had no Kingsway Pharma meetings that week. The rollup is for Kingsway Pharma only. Church and Personal meetings stay in their folders but don't roll up.
+That means there were no Kingsway Pharma meetings that week. The rollup is for Kingsway Pharma only. Church and Personal recordings remain in their folders but do not roll up.
 
-### Something looks wrong / weird / broken
+### Something looks wrong or unexpected
 
-**Do NOT try to fix it yourself.** The system has a lot of moving parts and changes you make can break things in ways that are hard to debug remotely.
+Email `hello@gallant.solutions` with:
 
-**Instead:** email `hello@gallant.solutions` with:
+- What you were doing
+- What you expected
+- What you actually saw (a screenshot is helpful but not required)
+- Approximate time of day
 
-- What you were doing when it happened
-- What you expected to see
-- What you actually saw (a screenshot helps, but isn't required)
-- Roughly what time of day it happened
-
-The support team gets an automatic alert when something breaks on the technical side. Usually they'll already be on it before you notice. But if you see something we missed, let us know.
+Support is notified automatically when something breaks technically. The team is usually already investigating before you notice. Even so, please tell us if you see something off.
 
 ---
 
-## Things you should NOT do
+## What not to do
 
-These won't break the world, but they create extra work for the support team:
+These will not break the system permanently but they create avoidable work:
 
-- **Don't open or edit the `.claude` folder** in your user directory. It's invisible by default — if you happen to find it, leave it alone.
-- **Don't delete recordings from Plaud** until you've seen them appear in OneDrive. Plaud is the source of truth; OneDrive is the output. If you delete from Plaud before the system has pulled it, the meeting is gone.
-- **Don't try to install Plaud or Claude updates yourself.** The system handles its own updates automatically every night.
-- **Don't disconnect from your OneDrive account.** If you do, meetings stop appearing.
-- **Don't move the "Plaud Meetings" folder out of OneDrive.** Move files inside it freely, but the parent folder stays where it is.
-- **Don't change the meeting keywords (Kingsway Pharma / Church / Personal)** without telling us. If you start saying "KP meeting" instead of "Kingsway Pharma," nothing routes correctly. If you want different keywords (e.g., a new project), email us and we'll add them.
-
----
-
-## Updates happen automatically
-
-Every night at 3:00 AM (while you're asleep), the system checks if there's a new version of itself and installs it silently. You won't notice anything. If we push a fix at 6 PM today, you'll have it by tomorrow morning.
-
-If something happens during an update and it breaks, the support team gets an automatic alert within ~1 hour. Usually we'll fix it before you start your day.
-
-This requires the computer to be on, signed in (lock screen is fine), and connected to the internet at 3 AM. Most office computers meet this naturally.
+- **Do not edit files in your `.claude` folder.** It is hidden by default. If you find it, leave it.
+- **Do not delete Plaud recordings before they appear in OneDrive.** Plaud is the source of truth; OneDrive is the output. If you delete from Plaud before the system has pulled the recording, the meeting is lost.
+- **Do not install Plaud or Claude updates yourself.** The system handles its own updates automatically.
+- **Do not disconnect your OneDrive account.** Meetings stop appearing if OneDrive is signed out.
+- **Do not move the "Plaud Meetings" folder out of OneDrive.** Move files within it freely; the parent folder stays where it is.
+- **Do not change the meeting keywords** without telling us. If you start saying "KP meeting" instead of "Kingsway Pharma," nothing routes correctly. To add a new meeting type (a new project, a new client, etc.), contact support.
 
 ---
 
-## Quick reference card (the one-page version)
+## Updates run automatically
 
-**RECORD:** Say `Kingsway Pharma` / `Church` / `Personal` in the first ~10 seconds. Then say who you're with. Then talk normally.
+Each night at 3:00 AM, the system checks for a new version and installs it silently if available. You will not notice. A fix published at 6:00 PM today will be in place by tomorrow morning.
 
-**END OF DAY:** Lock the screen (`Windows key + L`). Don't sign out.
+If an update breaks something, support is alerted within roughly an hour of the next scheduled run failing. The system also self-heals: it automatically reverts to the previous version when a fresh update causes a failure.
 
-**FIND YOUR MEETINGS:** OneDrive → Plaud Meetings → the folder matching your keyword. Kingsway Pharma meetings are bucketed by work week: `KPM.May 25-29, 2026 (Week 22)/`.
-
-**THE FRIDAY ROLLUP:** Same week folder as that week's meetings. File starts with `KPR.` instead of `KPM.`. Read it Saturday morning.
-
-**FILENAME CHEAT SHEET:** `KPM.` = Kingsway Pharma Meeting · `KPR.` = Kingsway Pharma Rollup · `CHM.` = Church · `PM.` = Personal · `UN.` = Uncategorized.
-
-**ACTION ITEMS:** Open any `.docx`. Look for `☐` checkboxes. Tick them off as you finish.
-
-**SOMETHING'S OFF:** Email `hello@gallant.solutions`. Don't try to fix it.
-
-**THREE GOOD OPENING LINES:**
-- "Kingsway Pharma meeting with [name]..."
-- "Church reflection on..."
-- "Personal note about..."
-
-**THE THREE THINGS NOT TO DO:**
-- Don't delete Plaud recordings until they've appeared in OneDrive
-- Don't sign out of your computer at end of day (lock it)
-- Don't edit files in folders you don't recognize
+For this to work, the computer must be on, signed in (lock screen is fine), and on the internet at 3:00 AM. A typical office computer satisfies this.
 
 ---
 
-*Questions? Email `hello@gallant.solutions`. We respond same-day.*
+## Quick reference
 
-*This guide is version 1.0 — last updated 2026-05-23.*
+**Record** — Say `Kingsway Pharma` / `Church` / `Personal` within the first ten seconds. Then name attendees. Then talk normally.
+
+**End of day** — Lock the screen (`Windows key + L`). Do not sign out.
+
+**Find your meetings** — OneDrive → Plaud Meetings → the folder matching your keyword. Kingsway Pharma meetings are bucketed by work week: `KPM.May 25-29, 2026 (Week 22)/`.
+
+**Read the Friday rollup** — Same week folder as the meetings. The file begins with `KPR.` instead of `KPM.`. Best read Saturday morning.
+
+**Mark an action item complete** — Open the document in Word. Change `[ ]` to `[x]`. Save.
+
+**Filename cheat sheet** — `KPM.` Kingsway Pharma Meeting · `KPR.` Kingsway Pharma Rollup · `CHM.` Church · `PM.` Personal · `UN.` Uncategorized.
+
+**Something is off** — Email `hello@gallant.solutions`. Do not attempt to fix.
+
+**Three valid opening lines**
+
+- "Kingsway Pharma meeting with [name], regarding [topic]..."
+- "Church reflection on [topic]..."
+- "Personal note, [topic]..."
+
+**Three things not to do**
+
+- Do not delete Plaud recordings until they have appeared in OneDrive.
+- Do not sign out at end of day — lock the screen instead.
+- Do not edit files in folders you do not recognize.
+
+---
+
+*Questions: `hello@gallant.solutions`. Same-day response.*
+
+*Guide version 2.0 — last updated 2026-05-23.*

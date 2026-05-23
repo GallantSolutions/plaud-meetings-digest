@@ -35,6 +35,7 @@ Input JSON shape:
   "meeting_type": "Kingsway Pharma",         # routed folder
   "recording_title": "Q3 Plans",             # short 3-6 word topic summary
   "attendees": ["John Smith", "Sarah Jones"],# who the operator met with (not them)
+  "recap": "2-3 sentence summary of the meeting (v2.2.4+)",   # rendered at top
   "recorded_at": "2026-05-22T14:30:00-04:00",
   "duration_minutes": 47.3,
   "speakers": ["Garrett", "John Smith"],     # voice-diarization, includes operator
@@ -72,9 +73,61 @@ try:
     from docx import Document
     from docx.shared import Pt, RGBColor, Inches
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
 except ImportError:
     sys.stderr.write("ERROR: python-docx not installed. Run: python3 -m pip install python-docx\n")
     sys.exit(1)
+
+
+# Brand colors — kept in sync with rollup_docx_writer.py
+GALLANT_DEEP_NAVY = RGBColor(0x1A, 0x2A, 0x44)
+GALLANT_GRAPHITE  = RGBColor(0x3D, 0x4A, 0x59)
+GALLANT_MUTED     = RGBColor(0x6C, 0x75, 0x83)
+GALLANT_DIVIDER   = RGBColor(0xCC, 0xCC, 0xCC)
+
+
+def _set_run(run, *, bold=False, italic=False, size=11, color=None, font="Calibri") -> None:
+    run.bold = bold
+    run.italic = italic
+    run.font.size = Pt(size)
+    run.font.name = font
+    if color:
+        run.font.color.rgb = color
+
+
+def _section_header(doc, text: str) -> None:
+    """ALL CAPS section header in deep navy with subtle bottom rule."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(18)
+    p.paragraph_format.space_after = Pt(6)
+    r = p.add_run(text.upper())
+    _set_run(r, bold=True, size=12, color=GALLANT_DEEP_NAVY)
+    pPr = p._p.get_or_add_pPr()
+    pBdr = OxmlElement("w:pBdr")
+    bottom = OxmlElement("w:bottom")
+    bottom.set(qn("w:val"), "single")
+    bottom.set(qn("w:sz"), "6")
+    bottom.set(qn("w:space"), "4")
+    bottom.set(qn("w:color"), "CCCCCC")
+    pBdr.append(bottom)
+    pPr.append(pBdr)
+
+
+def _body_run(p, text: str, *, bold=False, italic=False, color=None) -> None:
+    r = p.add_run(text)
+    _set_run(r, bold=bold, italic=italic, size=11, color=color or GALLANT_GRAPHITE)
+
+
+def _detail_line(doc, parts: list[str], indent_in: float = 0.35) -> None:
+    if not parts:
+        return
+    p = doc.add_paragraph()
+    p.paragraph_format.left_indent = Inches(indent_in)
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(4)
+    r = p.add_run("    ".join(parts))
+    _set_run(r, italic=True, size=9, color=GALLANT_MUTED)
 
 
 def load_config() -> dict[str, Any]:
@@ -106,46 +159,61 @@ def resolve_recording_datetime(recorded_at_iso: str | None) -> datetime:
 def write_docx(meeting: dict[str, Any], output_path: Path) -> None:
     doc = Document()
 
-    # ---- Heading ----
-    h = doc.add_heading(meeting.get("recording_title") or "Untitled Meeting", level=1)
+    # Document-wide base font
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
 
-    # ---- Meta line ----
     recorded = resolve_recording_datetime(meeting.get("recorded_at"))
     duration = meeting.get("duration_minutes")
     speakers = meeting.get("speakers") or []
     attendees = meeting.get("attendees") or []
     mtype = meeting.get("meeting_type") or "Uncategorized"
+    title = meeting.get("recording_title") or "Untitled Meeting"
+    recap = meeting.get("recap")
 
-    meta = doc.add_paragraph()
-    meta_runs = [
-        ("Date: ", True),
-        (recorded.strftime("%A, %B %d, %Y at %I:%M %p"), False),
-    ]
-    if duration:
-        meta_runs += [("\nDuration: ", True), (f"{int(duration)} min", False)]
+    # ===== TITLE BLOCK ======================================================
+    title_p = doc.add_paragraph()
+    title_p.paragraph_format.space_after = Pt(2)
+    t_run = title_p.add_run(f"{mtype.upper()} — {title.upper()}")
+    _set_run(t_run, bold=True, size=20, color=GALLANT_DEEP_NAVY)
+
     if attendees:
-        meta_runs += [("\nAttendees: ", True), (", ".join(attendees), False)]
-    if speakers:
-        meta_runs += [("\nSpeakers (detected): ", True), (", ".join(speakers), False)]
-    meta_runs += [("\nMeeting type: ", True), (mtype, False)]
-    for text, bold in meta_runs:
-        r = meta.add_run(text)
-        r.bold = bold
-        r.font.size = Pt(10)
+        sub_p = doc.add_paragraph()
+        sub_p.paragraph_format.space_after = Pt(2)
+        s_run = sub_p.add_run(f"Meeting with {', '.join(attendees)}")
+        _set_run(s_run, size=13, color=GALLANT_GRAPHITE)
 
-    doc.add_paragraph()  # spacing
+    # Single meta line: Date | Duration | Speakers (if different from attendees)
+    meta_p = doc.add_paragraph()
+    meta_p.paragraph_format.space_after = Pt(6)
+    meta_bits = [recorded.strftime("%A, %B %d, %Y at %-I:%M %p")]
+    if duration:
+        meta_bits.append(f"{int(duration)} minutes")
+    meta_text = "    |    ".join(meta_bits)
+    m_run = meta_p.add_run(meta_text)
+    _set_run(m_run, size=10, color=GALLANT_MUTED, italic=True)
 
-    # ---- Action items (☐ prefix so it visually reads as a checklist) ----
-    doc.add_heading("Action items", level=2)
+    # ===== RECAP (when extracted) ==========================================
+    if recap:
+        _section_header(doc, "Recap")
+        rp = doc.add_paragraph()
+        rp.paragraph_format.space_before = Pt(4)
+        rp.paragraph_format.space_after = Pt(4)
+        _body_run(rp, recap)
+
+    # ===== ACTION ITEMS ====================================================
+    _section_header(doc, "Action Items")
     items = meeting.get("action_items") or []
     if items:
         for item in items:
-            p = doc.add_paragraph(style="List Bullet")
-            box = p.add_run("☐ ")
-            box.font.size = Pt(11)
-            r = p.add_run(item.get("action", "(no text)"))
-            r.bold = True
-            # Owner / due / priority on second line
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(2)
+            # Clean [ ] checkbox (not Unicode ballot box) — universally
+            # readable, prints cleanly, no emoji rendering inconsistency
+            _body_run(p, "[ ]  ", bold=True, color=GALLANT_DEEP_NAVY)
+            _body_run(p, item.get("action", "(no text)"), bold=True)
             details = []
             if item.get("owner"):
                 details.append(f"Owner: {item['owner']}")
@@ -156,82 +224,81 @@ def write_docx(meeting: dict[str, Any], output_path: Path) -> None:
             if item.get("context"):
                 details.append(f"Context: {item['context']}")
             if item.get("source_timestamp"):
-                details.append(f"@ {item['source_timestamp']}")
-            if details:
-                sub = doc.add_paragraph()
-                sub.paragraph_format.left_indent = Inches(0.5)
-                sub.paragraph_format.space_before = Pt(0)
-                sr = sub.add_run("   " + " · ".join(details))
-                sr.italic = True
-                sr.font.size = Pt(9)
-                sr.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+                details.append(f"At: {item['source_timestamp']}")
+            _detail_line(doc, details, indent_in=0.45)
     else:
-        doc.add_paragraph("(no action items extracted)")
+        p = doc.add_paragraph()
+        _body_run(p, "No action items identified.", italic=True, color=GALLANT_MUTED)
 
-    # ---- Decisions ----
-    doc.add_heading("Decisions made", level=2)
+    # ===== DECISIONS RECORDED ==============================================
     decisions = meeting.get("decisions") or []
     if decisions:
+        _section_header(doc, "Decisions Recorded")
         for d in decisions:
-            p = doc.add_paragraph(style="List Bullet")
-            r = p.add_run(d.get("what", "(no text)"))
-            r.bold = True
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(2)
+            _body_run(p, "•  ", bold=True, color=GALLANT_DEEP_NAVY)
+            _body_run(p, d.get("what", "(no text)"), bold=True)
             if d.get("why"):
-                p.add_run(f" — {d['why']}")
+                rp = doc.add_paragraph()
+                rp.paragraph_format.left_indent = Inches(0.35)
+                rp.paragraph_format.space_before = Pt(0)
+                rp.paragraph_format.space_after = Pt(2)
+                _body_run(rp, "Rationale: ", bold=True)
+                _body_run(rp, d["why"])
             if d.get("source_timestamp"):
-                ts = doc.add_paragraph()
-                ts.paragraph_format.left_indent = Inches(0.5)
-                ts.paragraph_format.space_before = Pt(0)
-                ts_run = ts.add_run(f"   @ {d['source_timestamp']}")
-                ts_run.italic = True
-                ts_run.font.size = Pt(9)
-                ts_run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
-    else:
-        doc.add_paragraph("(none)")
+                _detail_line(doc, [f"At: {d['source_timestamp']}"])
 
-    # ---- Open questions ----
-    doc.add_heading("Open questions", level=2)
+    # ===== OPEN QUESTIONS ==================================================
     questions = meeting.get("open_questions") or []
     if questions:
+        _section_header(doc, "Open Questions")
         for q in questions:
-            p = doc.add_paragraph(style="List Bullet")
-            p.add_run(q.get("question", "(no text)"))
+            p = doc.add_paragraph()
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(2)
+            _body_run(p, "•  ", bold=True, color=GALLANT_DEEP_NAVY)
+            _body_run(p, q.get("question", "(no text)"), bold=True)
+            details = []
             if q.get("raised_by"):
-                p.add_run(f"  — raised by {q['raised_by']}")
+                details.append(f"Raised by: {q['raised_by']}")
             if q.get("source_timestamp"):
-                p.add_run(f"  @ {q['source_timestamp']}")
-    else:
-        doc.add_paragraph("(none)")
+                details.append(f"At: {q['source_timestamp']}")
+            _detail_line(doc, details)
 
-    # ---- Notable quotes ----
+    # ===== NOTABLE QUOTES ==================================================
     quotes = meeting.get("notable_quotes") or []
     if quotes:
-        doc.add_heading("Notable quotes", level=2)
+        _section_header(doc, "Notable Quotes")
         for q in quotes:
-            p = doc.add_paragraph(style="Intense Quote")
-            r = p.add_run(q.get("quote", "(no text)"))
+            qp = doc.add_paragraph()
+            qp.paragraph_format.space_before = Pt(6)
+            qp.paragraph_format.space_after = Pt(2)
+            qp.paragraph_format.left_indent = Inches(0.35)
+            qr = qp.add_run(f"“{q.get('quote', '(no text)')}”")
+            _set_run(qr, italic=True, size=11, color=GALLANT_GRAPHITE)
             attribution_bits = []
             if q.get("speaker"):
                 attribution_bits.append(q["speaker"])
             if q.get("source_timestamp"):
-                attribution_bits.append(q["source_timestamp"])
+                attribution_bits.append(f"at {q['source_timestamp']}")
             if attribution_bits:
-                attrib = doc.add_paragraph()
-                attrib.paragraph_format.left_indent = Inches(0.5)
-                ar = attrib.add_run(" — " + " @ ".join(attribution_bits))
-                ar.italic = True
-                ar.font.size = Pt(9)
+                ap = doc.add_paragraph()
+                ap.paragraph_format.left_indent = Inches(0.55)
+                ap.paragraph_format.space_before = Pt(0)
+                ap.paragraph_format.space_after = Pt(4)
+                ar = ap.add_run(f"— {', '.join(attribution_bits)}")
+                _set_run(ar, italic=True, size=9, color=GALLANT_MUTED)
 
-    # ---- Footer ----
+    # ===== FOOTER ==========================================================
     doc.add_paragraph()
-    f = doc.add_paragraph()
-    fr = f.add_run(
-        f"Generated by Plaud Meetings Digest on {datetime.now().strftime('%Y-%m-%d %H:%M')}.  "
-        f"Recording ID: {meeting.get('source_file_id', '?')}"
+    foot = doc.add_paragraph()
+    fr = foot.add_run(
+        f"Generated by Plaud Meetings Digest on {datetime.now().strftime('%Y-%m-%d %H:%M')}.    "
+        f"Recording ID: {meeting.get('source_file_id', 'n/a')}"
     )
-    fr.italic = True
-    fr.font.size = Pt(8)
-    fr.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+    _set_run(fr, italic=True, size=8, color=GALLANT_MUTED)
 
     # ---- Save ----
     output_path.parent.mkdir(parents=True, exist_ok=True)

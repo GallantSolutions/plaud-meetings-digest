@@ -26,16 +26,18 @@ Runs **Friday at 5:30 PM** local time, scheduled 30 minutes after the Friday 5:0
 
 ## What it produces
 
-A single document (Word `.docx` on Windows, Notion page on Mac) titled `<Meeting Type> — Weekly Rollup, Week of <YYYY-MM-DD>`. If multiple meeting types are flagged for rollup, one document per type. Sections, in order (carry-overs at top per v2.2.3 — stuck items are the highest-leverage information in the rollup):
+A single document (Word `.docx` on Windows, Notion page on Mac) titled `<Meeting Type> — Weekly Rollup, Week of <YYYY-MM-DD>`. If multiple meeting types are flagged for rollup, one document per type. Sections, in order (v2.2.4+ professional pharma-corporate styling — no emoji, ALL CAPS section headers in deep navy with subtle bottom rules):
 
-1. **⏱️ Still open from prior weeks — action needed** — items added before this week that are still in the active backlog (within the last 30 days), sorted oldest-first. Aging markers: `[Open N days]`, `⚠️` after 14, `🚨` after 21. When zero items: shows `✅ Clean slate` (positive signal worth flagging).
-2. **🎯 Next week's focus** — Claude's pick of 3–5 highest-leverage items to tackle Monday. One-line "Why" each.
-3. **🔴 High priority (open)** — items added this week with `Priority: High`
-4. **By context** — items added this week, grouped by `context` (Sales / Operations / Strategic / etc.)
-5. **🧠 Decisions made** — synthesized from the week's recordings
-6. **❓ Open questions still unresolved** — synthesized from the week's recordings
-7. **📊 Themes** — 2–3 patterns Claude noticed across the week's meetings (recurring names, repeated commitments, etc.)
-8. **Stats** — N meetings processed, M new action items, X carry-overs
+1. **OPEN ITEMS FROM PRIOR WEEKS** — items added before this week that are still in the active backlog (within the last 30 days), sorted oldest-first, rendered as a **4-column table**: `Action Item | Days Open | Status | Source Meeting`. Status column uses text labels: `CRITICAL` (21+ days, deep red), `ATTENTION` (14+ days, deep amber), `OPEN` (under 14 days, graphite). When zero items: shows `All prior-week items closed. No carry-overs this week.`
+2. **NEXT WEEK'S FOCUS PICKS** — Claude's pick of 3–5 highest-leverage items to tackle Monday. Numbered list. Each: action (bold) + "Rationale:" line + Owner / Due / From detail line.
+3. **HIGH PRIORITY (THIS WEEK)** — items added this week with `Priority: High`
+4. **ACTION ITEMS BY CONTEXT** — items added this week, grouped by `context` (Sales / Operations / Strategic / etc.)
+5. **DECISIONS RECORDED** — synthesized from the week's recordings; each shows the decision (bold) + "Rationale:" line if known
+6. **OPEN QUESTIONS** — synthesized from the week's recordings
+7. **OBSERVATIONS** — 2–3 patterns Claude noticed across the week's meetings (recurring names, repeated commitments, etc.). Formerly "Themes" — renamed to professional language.
+8. **SUMMARY** — `N meetings processed | M new action items | X carry-overs still open`
+
+**Hard rule:** the rollup MUST NOT contain emojis or casual language. Section headers are ALL CAPS. Status indicators are text labels (CRITICAL/ATTENTION/OPEN), not 🚨/⚠️. The client is a high-performing pharma executive; the deliverable looks like something his board would expect to see.
 
 ## Pre-flight
 
