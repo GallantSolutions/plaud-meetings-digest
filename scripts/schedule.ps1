@@ -45,7 +45,11 @@ function Register-DigestTask {
         [string]$TaskName,
         [string]$Skill,
         [string]$Source,
-        [Microsoft.PowerShell.ScheduledJob.ScheduledJobTrigger]$Trigger
+        # Triggers come from New-ScheduledTaskTrigger which returns [CimInstance].
+        # The legacy [Microsoft.PowerShell.ScheduledJob.ScheduledJobTrigger] type
+        # is from the deprecated PSScheduledJob module that doesn't ship with
+        # PowerShell 7. Leaving untyped is the most compatible across versions.
+        $Trigger
     )
 
     # Unregister any prior version with this name
