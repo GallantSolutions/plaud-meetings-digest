@@ -253,21 +253,22 @@ printf "When the client starts each Plaud recording, they state the meeting type
 printf "(e.g., 'Kingsway Pharma meeting with John Smith'). The skill matches the\n"
 printf "spoken opening line against keywords to route to the right folder/group.\n\n"
 printf "Default meeting types:\n"
-printf "  • Kingsway Pharma   → folder 'Kingsway Pharma'   → INCLUDED in Friday rollup\n"
-printf "  • Church            → folder 'Church'            → excluded from rollup\n"
-printf "  • Personal          → folder 'Personal'          → excluded from rollup\n\n"
+printf "  • Kingsway Pharma   → folder 'Kingsway Pharma'   → filename prefix 'KP'  → INCLUDED in Friday rollup\n"
+printf "  • Church            → folder 'Church'            → filename prefix 'CH'  → excluded from rollup\n"
+printf "  • Personal          → folder 'Personal'          → filename prefix 'P'   → excluded from rollup\n\n"
+printf "  Files land as: KP.<short title> (<attendees>).docx  e.g. KP.Q3 Plans (John Smith).docx\n\n"
 read -p "Use these defaults? [Y/n]: " ROUTING_CHOICE
 ROUTING_CHOICE="${ROUTING_CHOICE:-Y}"
 
 ROUTING_JSON='[
-  { "keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "include_in_weekly_rollup": true },
-  { "keyword": "Church",          "folder": "Church",          "include_in_weekly_rollup": false },
-  { "keyword": "Personal",        "folder": "Personal",        "include_in_weekly_rollup": false }
+  { "keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "filename_prefix": "KP", "include_in_weekly_rollup": true },
+  { "keyword": "Church",          "folder": "Church",          "filename_prefix": "CH", "include_in_weekly_rollup": false },
+  { "keyword": "Personal",        "folder": "Personal",        "filename_prefix": "P",  "include_in_weekly_rollup": false }
 ]'
 
 if [[ "$ROUTING_CHOICE" =~ ^[Nn]$ ]]; then
-  printf "\nEnter meeting types one per line: keyword|folder|include_in_rollup (yes/no)\n"
-  printf "Example: Kingsway Pharma|Kingsway Pharma|yes\n"
+  printf "\nEnter meeting types one per line: keyword|folder|filename_prefix|include_in_rollup (yes/no)\n"
+  printf "Example: Kingsway Pharma|Kingsway Pharma|KP|yes\n"
   printf "Blank line to finish.\n\n"
   ITEMS="["
   FIRST=1
@@ -275,13 +276,14 @@ if [[ "$ROUTING_CHOICE" =~ ^[Nn]$ ]]; then
     read -p "Meeting type: " LINE
     if [[ -z "$LINE" ]]; then break; fi
     IFS='|' read -ra PARTS <<< "$LINE"
-    if [[ ${#PARTS[@]} -ne 3 ]]; then warn "Format: keyword|folder|yes-or-no"; continue; fi
+    if [[ ${#PARTS[@]} -ne 4 ]]; then warn "Format: keyword|folder|filename_prefix|yes-or-no"; continue; fi
     KW="${PARTS[0]}"
     FOLDER="${PARTS[1]}"
-    INCL="${PARTS[2]}"
+    PREFIX="${PARTS[2]}"
+    INCL="${PARTS[3]}"
     if [[ "$INCL" == "yes" ]]; then INCL_BOOL="true"; else INCL_BOOL="false"; fi
     if [[ $FIRST -eq 0 ]]; then ITEMS+=","; fi
-    ITEMS+=$(printf '\n  {"keyword":"%s","folder":"%s","include_in_weekly_rollup":%s}' "$KW" "$FOLDER" "$INCL_BOOL")
+    ITEMS+=$(printf '\n  {"keyword":"%s","folder":"%s","filename_prefix":"%s","include_in_weekly_rollup":%s}' "$KW" "$FOLDER" "$PREFIX" "$INCL_BOOL")
     FIRST=0
   done
   ITEMS+="\n]"

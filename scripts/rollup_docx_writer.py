@@ -256,10 +256,29 @@ def write_rollup(rollup: dict[str, Any], output_path: Path, warn_days: int, loud
     doc.save(str(output_path))
 
 
-def resolve_output_path(rollup: dict[str, Any], base_dir: Path) -> Path:
+def resolve_filename_prefix(meeting_type: str, config: dict[str, Any]) -> str:
+    """Same lookup as docx_writer.resolve_filename_prefix — kept local
+    to avoid cross-script imports under launchd's restricted PYTHONPATH."""
+    routing = config.get("meeting_routing", {})
+    for entry in routing.get("types", []):
+        if entry.get("folder") == meeting_type:
+            return entry.get("filename_prefix", "") or ""
+    fallback_folder = routing.get("fallback_folder") or "Uncategorized"
+    if meeting_type == fallback_folder:
+        return routing.get("fallback_filename_prefix", "") or ""
+    return ""
+
+
+def resolve_output_path(rollup: dict[str, Any], base_dir: Path, config: dict[str, Any]) -> Path:
+    """
+    Rollup filename format (v2.2.1+): '{prefix}.Weekly Rollup ({year}-W{ww}).docx'
+      e.g. 'KP.Weekly Rollup (2026-W21).docx'
+
+    Falls back to '{year}-W{ww} {meeting_type} Weekly Rollup.docx' if no
+    prefix is configured (pre-v2.2.1 installs).
+    """
     mtype = rollup.get("meeting_type") or "Untitled"
     week_start_iso = rollup.get("week_start", datetime.now().strftime("%Y-%m-%d"))
-    # ISO week
     try:
         dt = datetime.fromisoformat(week_start_iso)
         year, week, _ = dt.isocalendar()
@@ -267,7 +286,11 @@ def resolve_output_path(rollup: dict[str, Any], base_dir: Path) -> Path:
         year, week = datetime.now().year, 0
 
     folder = base_dir / "Plaud Meetings" / sanitize_filename(mtype, 40) / "_weekly"
-    filename = f"{year}-W{week:02d} {sanitize_filename(mtype, 40)} Weekly Rollup.docx"
+    prefix = resolve_filename_prefix(mtype, config)
+    if prefix:
+        filename = f"{prefix}.Weekly Rollup ({year}-W{week:02d}).docx"
+    else:
+        filename = f"{year}-W{week:02d} {sanitize_filename(mtype, 40)} Weekly Rollup.docx"
     return folder / filename
 
 
@@ -294,7 +317,7 @@ def main() -> int:
     warn_days = int(rollup_cfg.get("carry_over_warn_days", 14))
     loud_days = int(rollup_cfg.get("carry_over_loud_days", 21))
 
-    out_path = Path(args.output) if args.output else resolve_output_path(rollup, base_dir)
+    out_path = Path(args.output) if args.output else resolve_output_path(rollup, base_dir, config)
     write_rollup(rollup, out_path, warn_days, loud_days)
 
     print(str(out_path))

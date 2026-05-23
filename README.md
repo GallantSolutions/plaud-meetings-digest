@@ -4,7 +4,7 @@ Turn your Plaud recordings into routed, structured action items — automaticall
 
 | Platform | Default destination | Per-meeting output | Weekly rollup output |
 |---|---|---|---|
-| **Windows** | OneDrive folders | One Word `.docx` per meeting in `OneDrive\Plaud Meetings\<meeting-type>\` | Word `.docx` in `<meeting-type>\_weekly\` |
+| **Windows** | OneDrive folders | One Word `.docx` per meeting in `OneDrive\Plaud Meetings\<meeting-type>\` — filename `<prefix>.<short topic> (<attendees>).docx` e.g. `KP.Q3 Plans (John Smith).docx` | Word `.docx` in `<meeting-type>\_weekly\` — filename `<prefix>.Weekly Rollup (YYYY-Www).docx` |
 | **Mac**     | Notion             | One row per meeting in "Plaud Meetings" DB (recap in page body, action items as checkboxes) | Notion page under the parent page |
 
 Built by **Gallant**.
@@ -43,7 +43,7 @@ Three scheduled jobs run on their own:
 - **5:30 PM Friday** — synthesize the weekly rollup (Kingsway Pharma only)
 
 Outputs land in:
-- **Windows**: `<OneDrive>\Plaud Meetings\<meeting-type>\<YYYY-MM-DD HHMM> <title>.docx` — one `.docx` per meeting; action items rendered as ☐ checklist items
+- **Windows**: `<OneDrive>\Plaud Meetings\<meeting-type>\<prefix>.<short topic> (<attendees>).docx` (e.g. `KP.Q3 Plans (John Smith).docx`) — one `.docx` per meeting; action items rendered as ☐ checklist items. The `<prefix>` is a 1-3 char abbreviation per meeting type (KP / CH / P / UN by default) configured at install time.
 - **Mac**: one row per meeting in your "Plaud Meetings" Notion database; the row's page body has the full recap with action items as interactive checkboxes you can tick off as you complete them. The Friday rollup lands as a separate page under the same parent page.
 
 ### Manual
@@ -86,6 +86,7 @@ To pin to a specific version (e.g., if a bad release ships): edit `~\.claude\ski
 
 ## Versions
 
+- **v2.2.1** — New filename convention: `<prefix>.<short topic> (<attendees>).docx` instead of `<YYYY-MM-DD HHMM> <title>.docx`. Each meeting type gets a 1-3 char prefix (KP / CH / P / UN by default). Claude generates the short topic (3-6 words) and extracts attendees from the spoken opening line. Files now sort by topic in OneDrive, not by date. Date is preserved in the document metadata and appended to the filename automatically only when there's a same-title collision. Rollup files match: `KP.Weekly Rollup (2026-W21).docx`. Config schema adds `filename_prefix` per meeting type + `fallback_filename_prefix` for Uncategorized. Pre-v2.2.1 installs that auto-update will pick up the new schema; existing `.docx` files are NOT renamed (old format files stay where they are; new meetings land in the new format).
 - **v2.2.0** — Gallant standard install pattern retrofitted. Adds (a) nightly auto-update Scheduled Task / launchd job that pulls latest GitHub Release at 3 AM local; (b) Healthchecks.io heartbeat wrapping on every scheduled run so the operator gets alerted to silent failures within ~1 hour; (c) soft rollback via per-version snapshots at `<install-prefix>/.versions/`. Reusable as the `install-pattern` skill (`.claude/skills/install-pattern/`) — same pattern will land in every future client-facing build.
 - **v2.1.4** — Windows install correctness pass. Four critical fixes validated on a clean `windows-latest` cloud runner: UTF-8 BOM on every `.ps1` file (Windows PowerShell was parser-erroring on the multi-byte chars used in banners); `install.ps1` probes 6 known Claude Code install locations after install (no shell restart needed); defensive null-handling on `Read-Host` returns; `schedule.ps1` drops the deprecated `[Microsoft.PowerShell.ScheduledJob.ScheduledJobTrigger]` type constraint that didn't ship with PowerShell 7. End-to-end install now lands all 3 Scheduled Tasks on a clean Windows machine.
 - **v2.1.0** — One Notion row per MEETING (was one row per action item). Action items render as interactive Notion checkboxes you can tick off. Word docs use ☐ ballot-box characters for the same visual checklist UX. Claude Code Windows install fixed (correct package name + Anthropic's official PowerShell installer).

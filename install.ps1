@@ -52,7 +52,7 @@ $ScriptsInstall       = Join-Path $SkillMeetingsInstall 'scripts'
 $ConfigInstall        = Join-Path $SkillMeetingsInstall 'config.json'
 $StateDir             = Join-Path $SkillMeetingsInstall 'state'
 
-Write-Header "Plaud Meetings Digest — Windows Installer (v2.2.0)"
+Write-Header "Plaud Meetings Digest — Windows Installer (v2.2.1)"
 
 # ============================================================================
 # Step 1 — Prerequisites
@@ -241,32 +241,35 @@ Write-Host "(e.g., 'Kingsway Pharma meeting with John Smith' or 'Sunday church r
 Write-Host "The skill matches the spoken opening line to the keywords below to route to the right folder."
 Write-Host ""
 Write-Host "Default meeting types for this client:"
-Write-Host "  • Kingsway Pharma   → folder 'Kingsway Pharma'   → INCLUDED in Friday rollup"
-Write-Host "  • Church            → folder 'Church'            → excluded from rollup"
-Write-Host "  • Personal          → folder 'Personal'          → excluded from rollup"
+Write-Host "  • Kingsway Pharma   → folder 'Kingsway Pharma'   → filename prefix 'KP'  → INCLUDED in Friday rollup"
+Write-Host "  • Church            → folder 'Church'            → filename prefix 'CH'  → excluded from rollup"
+Write-Host "  • Personal          → folder 'Personal'          → filename prefix 'P'   → excluded from rollup"
+Write-Host ""
+Write-Host "  Files land as: KP.<short title> (<attendees>).docx  e.g. KP.Q3 Plans (John Smith).docx"
 Write-Host ""
 $customize = Read-Host "Use these defaults? [Y/n]"
 $routing = @()
 if ($customize -eq 'n') {
-    Write-Host "Enter meeting types, one per line. For each: keyword|folder|include_in_rollup (yes/no)."
-    Write-Host "Example: Kingsway Pharma|Kingsway Pharma|yes"
+    Write-Host "Enter meeting types, one per line. For each: keyword|folder|filename_prefix|include_in_rollup (yes/no)."
+    Write-Host "Example: Kingsway Pharma|Kingsway Pharma|KP|yes"
     Write-Host "Blank line to finish."
     while ($true) {
         $line = Read-Host "Meeting type"
         if (-not $line) { break }
         $parts = $line.Split('|')
-        if ($parts.Length -ne 3) { Write-Warn "Format: keyword|folder|yes-or-no — try again"; continue }
+        if ($parts.Length -ne 4) { Write-Warn "Format: keyword|folder|filename_prefix|yes-or-no — try again"; continue }
         $routing += @{
             keyword                   = $parts[0].Trim()
             folder                    = $parts[1].Trim()
-            include_in_weekly_rollup  = ($parts[2].Trim().ToLower() -eq 'yes')
+            filename_prefix           = $parts[2].Trim()
+            include_in_weekly_rollup  = ($parts[3].Trim().ToLower() -eq 'yes')
         }
     }
 } else {
     $routing = @(
-        @{ keyword = "Kingsway Pharma"; folder = "Kingsway Pharma"; include_in_weekly_rollup = $true  },
-        @{ keyword = "Church";          folder = "Church";          include_in_weekly_rollup = $false },
-        @{ keyword = "Personal";        folder = "Personal";        include_in_weekly_rollup = $false }
+        @{ keyword = "Kingsway Pharma"; folder = "Kingsway Pharma"; filename_prefix = "KP"; include_in_weekly_rollup = $true  },
+        @{ keyword = "Church";          folder = "Church";          filename_prefix = "CH"; include_in_weekly_rollup = $false },
+        @{ keyword = "Personal";        folder = "Personal";        filename_prefix = "P";  include_in_weekly_rollup = $false }
     )
 }
 Write-Ok "Configured $($routing.Length) meeting type(s)"

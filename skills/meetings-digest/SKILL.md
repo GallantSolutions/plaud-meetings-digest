@@ -81,11 +81,12 @@ For each transcript, identify the meeting type by scanning the first `scan_first
 "meeting_routing": {
   "scan_first_seconds": 30,
   "types": [
-    {"keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "include_in_weekly_rollup": true},
-    {"keyword": "Church",          "folder": "Church",          "include_in_weekly_rollup": false},
-    {"keyword": "Personal",        "folder": "Personal",        "include_in_weekly_rollup": false}
+    {"keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "filename_prefix": "KP", "include_in_weekly_rollup": true},
+    {"keyword": "Church",          "folder": "Church",          "filename_prefix": "CH", "include_in_weekly_rollup": false},
+    {"keyword": "Personal",        "folder": "Personal",        "filename_prefix": "P",  "include_in_weekly_rollup": false}
   ],
-  "fallback_folder": "Uncategorized"
+  "fallback_folder": "Uncategorized",
+  "fallback_filename_prefix": "UN"
 }
 ```
 
@@ -94,6 +95,39 @@ Recording opens with "Kingsway Pharma meeting with John Smith…" → routes to 
 ## Extract structured information
 
 For each transcript, identify these categories. Stay disciplined — only include items the transcript actually supports.
+
+### Meeting title (the filename component)
+
+**A short, operator-meaningful 3-6 word summary of what the meeting was ABOUT.** This is what shows up in the filename (e.g., `KP.Q3 Plans (John Smith).docx` — the title is `Q3 Plans`). The operator needs to scan a OneDrive folder and instantly remember which meeting was which.
+
+Good examples:
+- `Q3 Plans`
+- `Compounding Tech Demo`
+- `Pricing Pushback Conversation`
+- `Pharma Wholesaler Rollout`
+- `Sermon on Patience`
+- `Dentist Reminder`
+
+Bad examples (do NOT produce these):
+- `Meeting with John Smith` ❌ — attendees go in their own field; don't repeat them in the title
+- `Kingsway Pharma Q3 Plans` ❌ — meeting type is already encoded in the filename prefix and the folder; don't repeat it
+- `A discussion about the various aspects of the upcoming Q3 quarterly planning cycle` ❌ — too long; trim aggressively to 3-6 words
+- `Meeting` ❌ — useless; extract the actual topic
+
+Set this as `recording_title` in the JSON input to docx_writer.py. If the transcript is too thin to support a title, use the first concrete noun phrase that appears in the first minute (e.g., "Q3 Plans" mentioned at 0:15 → title = "Q3 Plans"). Last resort: use a 2-word date label like `Morning Note`.
+
+### Attendees (the filename suffix)
+
+**The people the operator met WITH — NOT including the operator themselves.** Extract from the spoken opening line first (most reliable, since the operator intentionally names them: "Kingsway Pharma meeting with John Smith and Sarah Jones..." → attendees = `["John Smith", "Sarah Jones"]`). Fall back to the `speakers` voice-diarization list with the operator's name filtered out.
+
+Rules:
+- Use first + last name when both are spoken. First name only is acceptable if last name isn't in the transcript.
+- Skip generic labels like "Speaker 1," "Speaker 2," "the team," "everyone."
+- Skip the operator (usually "Garrett" or whoever's wearing the Plaud — the operator's name is in `config.default_owner`).
+- For Personal recordings (solo notes) attendees can be an empty list `[]` — the filename then just reads `P.Dentist Reminder.docx`.
+- For Church reflections (also typically solo) attendees can be empty.
+
+Set this as `attendees` in the JSON input to docx_writer.py — a list of strings.
 
 ### Action items
 
@@ -136,7 +170,8 @@ For each processed recording, build a JSON object matching the `docx_writer.py` 
 ```json
 {
   "meeting_type": "Kingsway Pharma",
-  "recording_title": "Kingsway Pharma w/ John Smith",
+  "recording_title": "Q3 Plans",
+  "attendees": ["John Smith"],
   "recorded_at": "2026-05-22T14:30:00-04:00",
   "duration_minutes": 47.3,
   "speakers": ["Garrett", "John Smith"],
@@ -155,7 +190,7 @@ Write it to a tempfile, then invoke:
 python3 ~/.claude/skills/meetings-digest/scripts/docx_writer.py --input /tmp/meeting-<file_id>.json
 ```
 
-The script computes the output path automatically: `{onedrive_folder}/Plaud Meetings/{meeting_type}/<YYYY-MM-DD HHMM> <title>.docx`. Prints the resolved path on success.
+The script computes the output path automatically: `{onedrive_folder}/Plaud Meetings/{meeting_type}/{prefix}.{title} ({attendees}).docx` — e.g. `OneDrive/Plaud Meetings/Kingsway Pharma/KP.Q3 Plans (John Smith).docx`. The `{prefix}` is read from `config.meeting_routing.types[].filename_prefix` (KP / CH / P by default; UN for the Uncategorized fallback folder). Same-title collisions get a date suffix appended automatically. Prints the resolved path on success.
 
 ### Mode B: `notion` (Mac default)
 
@@ -291,11 +326,12 @@ Do NOT paste the full digest into the chat — it belongs in the Word docs.
     "enabled": true,
     "scan_first_seconds": 30,
     "types": [
-      {"keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "include_in_weekly_rollup": true},
-      {"keyword": "Church",          "folder": "Church",          "include_in_weekly_rollup": false},
-      {"keyword": "Personal",        "folder": "Personal",        "include_in_weekly_rollup": false}
+      {"keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "filename_prefix": "KP", "include_in_weekly_rollup": true},
+      {"keyword": "Church",          "folder": "Church",          "filename_prefix": "CH", "include_in_weekly_rollup": false},
+      {"keyword": "Personal",        "folder": "Personal",        "filename_prefix": "P",  "include_in_weekly_rollup": false}
     ],
-    "fallback_folder": "Uncategorized"
+    "fallback_folder": "Uncategorized",
+    "fallback_filename_prefix": "UN"
   },
   "window_days": 3,
   "timezone": "America/New_York",

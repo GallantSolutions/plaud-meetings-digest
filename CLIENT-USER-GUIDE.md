@@ -54,7 +54,11 @@ There are three keywords for you:
 
 **The rule:** Within the first ~10 seconds of pressing record, your second or third word should be one of `Kingsway Pharma`, `Church`, or `Personal`. After that, talk about whatever you want — who you're with, what it's about, what was decided.
 
-**Also say who you're with.** It's not required for routing, but it's used in the document title, so you can scan your OneDrive folder later and remember which Kingsway Pharma meeting was which. "Kingsway Pharma meeting with John Smith" produces a document titled with John's name in it.
+**Also say who you're with.** Names you speak in the opening line end up in the filename, so you can scan your OneDrive folder and instantly see which Kingsway Pharma meeting was which.
+
+> "Kingsway Pharma meeting with **John Smith and Sarah Jones** about Q3 plans" → file lands as `KP.Q3 Plans (John Smith, Sarah Jones).docx`
+
+If you forget to name them, the file just gets the topic — `KP.Q3 Plans.docx` — which is still fine, just less scannable later.
 
 ### 2. Lock your computer at end of day — don't sign out
 
@@ -76,14 +80,25 @@ Open OneDrive on your computer. Look for a folder called **Plaud Meetings**. Ins
 OneDrive/
   Plaud Meetings/
     Kingsway Pharma/        ← work meetings land here
-      2026-05-23 0930 John Smith Q3 review.docx
-      2026-05-23 1400 Sarah medical affairs.docx
+      KP.Q3 Plans (John Smith).docx
+      KP.Pricing Pushback (Sarah Jones, Mark Lee).docx
+      KP.Compounding Demo (John Smith).docx
       _weekly/              ← Friday rollups land here
-        2026-W21 Kingsway Pharma Weekly Rollup.docx
+        KP.Weekly Rollup (2026-W21).docx
     Church/                 ← church reflections
+      CH.Sermon on Patience.docx
     Personal/               ← personal notes
+      P.Dentist Reminder.docx
     Uncategorized/          ← meetings where you forgot the keyword
+      UN.Untitled.docx
 ```
+
+**Filename format:** `<prefix>.<topic> (<who you met with>).docx`
+
+- `KP.` = Kingsway Pharma · `CH.` = Church · `P.` = Personal · `UN.` = Uncategorized
+- The topic is a short 3-6 word summary (the system writes this for you — you don't have to do anything)
+- Attendee names come from your spoken opening line ("Kingsway Pharma meeting with **John Smith and Sarah Jones** about Q3" → `(John Smith, Sarah Jones)`)
+- Solo recordings (Personal, Church) just get `P.Topic.docx` with no attendees in the name
 
 Click any `.docx` to open it in Word. Each document has:
 
@@ -100,7 +115,7 @@ You can rename files, move them, edit them — they're yours. The system doesn't
 Every Friday at 5:30 PM, you get a one-page document at:
 
 ```
-OneDrive/Plaud Meetings/Kingsway Pharma/_weekly/2026-W## Kingsway Pharma Weekly Rollup.docx
+OneDrive/Plaud Meetings/Kingsway Pharma/_weekly/KP.Weekly Rollup (2026-W##).docx
 ```
 
 This is the most important file of your week. It synthesizes everything from your Kingsway Pharma meetings that week:

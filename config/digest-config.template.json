@@ -1,5 +1,5 @@
 {
-  "version": "2.2.0",
+  "version": "2.2.1",
   "installed_at": null,
   "platform": null,
   "gallant_heartbeat": {
@@ -34,20 +34,24 @@
       {
         "keyword": "Kingsway Pharma",
         "folder": "Kingsway Pharma",
+        "filename_prefix": "KP",
         "include_in_weekly_rollup": true
       },
       {
         "keyword": "Church",
         "folder": "Church",
+        "filename_prefix": "CH",
         "include_in_weekly_rollup": false
       },
       {
         "keyword": "Personal",
         "folder": "Personal",
+        "filename_prefix": "P",
         "include_in_weekly_rollup": false
       }
     ],
-    "fallback_folder": "Uncategorized"
+    "fallback_folder": "Uncategorized",
+    "fallback_filename_prefix": "UN"
   },
   "window_days": 3,
   "timezone": "America/New_York",
