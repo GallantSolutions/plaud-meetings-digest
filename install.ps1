@@ -136,6 +136,37 @@ if (-not $claudeOk) {
     }
     # Refresh PATH for current session
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    # Claude Code's installer (Anthropic's claude.ai/install.ps1) drops the binary
+    # into user-local locations that aren't always added to the registry PATH that
+    # the current session inherits from. Probe known install locations and prepend
+    # to $env:Path so the rest of install.ps1 can invoke `claude` in the same
+    # session without a shell restart.
+    if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+        $knownClaudePaths = @(
+            "$env:LOCALAPPDATA\AnthropicClaude\bin",
+            "$env:LOCALAPPDATA\Programs\claude-code",
+            "$env:LOCALAPPDATA\Programs\Claude",
+            "$env:USERPROFILE\.claude\bin",
+            "$env:USERPROFILE\.local\bin",
+            "$env:APPDATA\npm"
+        )
+        foreach ($candidate in $knownClaudePaths) {
+            if (Test-Path "$candidate\claude.exe") {
+                $env:Path = "$candidate;$env:Path"
+                Write-Host "  (resolved claude.exe via $candidate)"
+                break
+            }
+        }
+    }
+    # Last-resort: recursive search of $env:LOCALAPPDATA for claude.exe (slow but
+    # exhaustive — fires only when the known-path probe missed).
+    if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+        $found = Get-ChildItem -Path $env:LOCALAPPDATA -Recurse -Filter 'claude.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) {
+            $env:Path = "$($found.Directory.FullName);$env:Path"
+            Write-Host "  (resolved claude.exe via recursive search: $($found.Directory.FullName))"
+        }
+    }
     if (Get-Command claude -ErrorAction SilentlyContinue) {
         Write-Ok "Claude Code installed: $(claude --version 2>&1 | Select-Object -First 1)"
     } else {
