@@ -147,6 +147,28 @@ jobs:
           Write-Host "validated.json contents:"
           Get-Content validated.json
 
+      - name: Fail honestly if install crashed
+        # Without this step, the workflow returns conclusion=success even when
+        # install.ps1 parser-errored and assertions all came up empty. The
+        # validate-build skill consumes workflow.conclusion as the gate signal,
+        # so we exit non-zero here whenever load-bearing assertions failed.
+        shell: pwsh
+        run: |
+          $missing  = '${{ steps.tasks_check.outputs.missing }}'
+          $skills   = '${{ steps.skills_check.outputs.skills }}'
+          $cfg      = '${{ steps.config_check.outputs.parses }}'
+          $errors = @()
+          if ($missing -ne '')   { $errors += "scheduled tasks missing: $missing" }
+          if ($skills  -eq '')   { $errors += "no skills landed at `$USERPROFILE\.claude\skills\" }
+          if ($cfg     -ne 'true') { $errors += "config.json missing or didn't parse" }
+          if ($errors.Count -gt 0) {
+            Write-Host "##[error]Install validation failed:" -ForegroundColor Red
+            foreach ($e in $errors) { Write-Host "  - $e" -ForegroundColor Red }
+            exit 1
+          } else {
+            Write-Host "All install assertions passed." -ForegroundColor Green
+          }
+
       - name: Cleanup — unregister scheduled tasks
         if: always()
         shell: pwsh
