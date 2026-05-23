@@ -241,6 +241,22 @@ if (Test-Path $liveScripts) {
 Set-Content -Path $VersionFile -Value $targetVersion -Encoding UTF8
 Log "Wrote version.txt = $targetVersion"
 
+# ---- Write update marker (auto-rollback safety net, v2.2.3+) -------------
+# The heartbeat wrapper checks this file when a wrapped command fails non-
+# zero. If the update was recent (< 24h) AND rolled_back is false, the
+# wrapper auto-restores the previous version from .versions/<from_version>/.
+# One-shot — the wrapper sets rolled_back: true so subsequent failures
+# don't repeat the rollback.
+$updateMarker = Join-Path $BundlePrefix '.last-update.json'
+$markerData = [ordered]@{
+    from_version = $currentVersion
+    to_version   = $targetVersion
+    updated_at   = (Get-Date).ToUniversalTime().ToString('o')
+    rolled_back  = $false
+} | ConvertTo-Json
+Set-Content -Path $updateMarker -Value $markerData -Encoding UTF8
+Log "Wrote update marker: $updateMarker"
+
 # ---- Re-register Scheduled Tasks (in case task definitions changed) ------
 $ScheduleScript = Join-Path $BundlePrefix 'scripts\schedule.ps1'
 if (Test-Path $ScheduleScript) {

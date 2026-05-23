@@ -26,12 +26,12 @@ Runs **Friday at 5:30 PM** local time, scheduled 30 minutes after the Friday 5:0
 
 ## What it produces
 
-A single document (Word `.docx` on Windows, Notion page on Mac) titled `<Meeting Type> — Weekly Rollup, Week of <YYYY-MM-DD>`. If multiple meeting types are flagged for rollup, one document per type. Sections, in order:
+A single document (Word `.docx` on Windows, Notion page on Mac) titled `<Meeting Type> — Weekly Rollup, Week of <YYYY-MM-DD>`. If multiple meeting types are flagged for rollup, one document per type. Sections, in order (carry-overs at top per v2.2.3 — stuck items are the highest-leverage information in the rollup):
 
-1. **🎯 Next week's focus** — Claude's pick of 3–5 highest-leverage items to tackle Monday. One-line "Why" each.
-2. **🔴 High priority (open)** — items added this week with `Priority: High`
-3. **By context** — items added this week, grouped by `context` (Sales / Operations / Strategic / etc.)
-4. **🔁 Carry-overs from prior weeks** — items added before this week that are still in the active backlog (within the last 30 days). Aging markers: `[Open N days]`, `⚠️` after 14, `🚨` after 21.
+1. **⏱️ Still open from prior weeks — action needed** — items added before this week that are still in the active backlog (within the last 30 days), sorted oldest-first. Aging markers: `[Open N days]`, `⚠️` after 14, `🚨` after 21. When zero items: shows `✅ Clean slate` (positive signal worth flagging).
+2. **🎯 Next week's focus** — Claude's pick of 3–5 highest-leverage items to tackle Monday. One-line "Why" each.
+3. **🔴 High priority (open)** — items added this week with `Priority: High`
+4. **By context** — items added this week, grouped by `context` (Sales / Operations / Strategic / etc.)
 5. **🧠 Decisions made** — synthesized from the week's recordings
 6. **❓ Open questions still unresolved** — synthesized from the week's recordings
 7. **📊 Themes** — 2–3 patterns Claude noticed across the week's meetings (recurring names, repeated commitments, etc.)
@@ -79,7 +79,7 @@ Group open items added this week under their `context` value, sorted by Priority
 
 ### Carry-overs from prior weeks
 
-For each carry-over, calculate `days_open = today - source_recorded_at`. Sort oldest-first. Apply aging markers (`⚠️` at warn_days, `🚨` at loud_days from config).
+For each carry-over, calculate `days_open = today - source_recorded_at`. Sort oldest-first. Apply aging markers (`⚠️` at warn_days, `🚨` at loud_days from config). v2.2.3+: this section is rendered at the TOP of the rollup (above "Next week's focus") because stuck commitments across weeks are the highest-leverage thing the operator needs to see — they should be confronted with the carry-over list BEFORE planning next week.
 
 ### Themes
 

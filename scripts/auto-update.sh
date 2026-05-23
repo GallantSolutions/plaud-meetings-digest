@@ -205,6 +205,27 @@ fi
 echo "$TARGET_VERSION" > "$VERSION_FILE"
 log "Wrote version.txt = $TARGET_VERSION"
 
+# ---- Write update marker (auto-rollback safety net, v2.2.3+) -------------
+# The heartbeat wrapper checks this file when a wrapped command fails non-
+# zero. If the update was recent (< 24h) AND rolled_back is false, the
+# wrapper auto-restores the previous version from .versions/<from_version>/.
+# One-shot — the wrapper sets rolled_back: true so subsequent failures
+# don't repeat the rollback.
+UPDATE_MARKER="$BUNDLE_PREFIX/.last-update.json"
+python3 - "$UPDATE_MARKER" "$CURRENT_VERSION" "$TARGET_VERSION" <<'PYEOF'
+import json, sys
+from datetime import datetime, timezone
+marker_path, from_v, to_v = sys.argv[1], sys.argv[2], sys.argv[3]
+data = {
+    "from_version": from_v,
+    "to_version":   to_v,
+    "updated_at":   datetime.now(timezone.utc).isoformat(),
+    "rolled_back":  False,
+}
+open(marker_path, "w").write(json.dumps(data, indent=2))
+PYEOF
+log "Wrote update marker: $UPDATE_MARKER"
+
 # ---- Re-register launchd jobs (in case task definitions changed) ---------
 SCHEDULE_SCRIPT="$BUNDLE_PREFIX/scripts/schedule.sh"
 if [[ -x "$SCHEDULE_SCRIPT" ]]; then

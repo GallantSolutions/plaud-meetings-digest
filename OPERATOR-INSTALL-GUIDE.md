@@ -172,6 +172,8 @@ The bundle keeps itself current. When you publish a new GitHub Release (`gh rele
 - Windows: copy contents of `%LOCALAPPDATA%\plaud-meetings-digest\.versions\<old-tag>\` over `%LOCALAPPDATA%\plaud-meetings-digest\`, then re-run `scripts\schedule.ps1`
 - Mac: same but at `~/Library/Application\ Support/plaud-meetings-digest/`
 
+**Auto-rollback (v2.2.3+):** If a scheduled job fails non-zero AND the most recent auto-update happened within the last 24h, the heartbeat wrapper automatically restores the previous version's bundle snapshot. You'll get a Healthchecks `fail` ping that announces the failure (operator's normal alert path). Check `<install-prefix>/logs/auto-rollback.log` for the rollback audit trail. The marker file `<install-prefix>/.last-update.json` sets `rolled_back: true` so the rollback is one-shot per update — subsequent failures don't recurse. To re-enable rollback for a fresh update push, just push a new release: the next auto-update writes a new marker with `rolled_back: false`.
+
 ---
 
 ## Train the client (5 minutes)

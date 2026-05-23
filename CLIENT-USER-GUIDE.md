@@ -134,6 +134,8 @@ OneDrive/Plaud Meetings/Kingsway Pharma/KPM.<this week>, 2026 (Week ##)/KPR.<thi
 
 So all of week 22's Kingsway Pharma meetings AND the rollup that summarizes them live together in the `KPM.May 25-29, 2026 (Week 22)/` folder. Click the folder, see the week's work + the rollup, done.
 
+**What's at the TOP of the rollup:** the first section is `⏱️ Still open from prior weeks — action needed`. It lists every action item from the past 30 days that you haven't closed out yet, sorted oldest-first. Items >14 days old get a `⚠️`, items >21 days old get a `🚨`. If you've cleaned everything up, you'll see `✅ Clean slate` — which is a good week. This section is designed to confront you with stuck commitments BEFORE you plan next week's focus.
+
 This is the most important file of your week. It synthesizes everything from your Kingsway Pharma meetings that week:
 
 - The top 5 things you said you'd do this week

@@ -132,6 +132,36 @@ def write_rollup(rollup: dict[str, Any], output_path: Path, warn_days: int, loud
         st_run.font.size = Pt(10)
         st_run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
 
+    # ---- Carry-overs (TOP OF ROLLUP, v2.2.3+) ------------------------------
+    # Moved above focus picks because stuck items are the highest-leverage
+    # information in the rollup — operator should see what's lingering across
+    # weeks BEFORE planning next week's focus.
+    carry = rollup.get("carry_overs") or []
+    if carry:
+        doc.add_heading("⏱️ Still open from prior weeks — action needed", level=2)
+        # Sort oldest-first so the most-stuck items render first
+        carry_sorted = sorted(carry, key=lambda c: int(c.get("days_open", 0) or 0), reverse=True)
+        for co in carry_sorted:
+            days = int(co.get("days_open", 0) or 0)
+            prefix = _aging_emoji(days, warn_days, loud_days)
+            label = f"{prefix}[Open {days} days] {co.get('action', '')}"
+            bits = []
+            if co.get("owner"):
+                bits.append(f"Owner: {co['owner']}")
+            if co.get("source_recording_title"):
+                bits.append(f"From: {co['source_recording_title']}")
+            _bullet_item(doc, label, bits)
+        doc.add_paragraph()  # spacing
+    else:
+        # Positive signal — no carry-overs is worth flagging because it
+        # means he closed the loop on everything from prior weeks.
+        doc.add_heading("⏱️ Still open from prior weeks", level=2)
+        p = doc.add_paragraph()
+        r = p.add_run("✅ Clean slate — no action items carried over from prior weeks.")
+        r.italic = True
+        r.font.size = Pt(11)
+        doc.add_paragraph()
+
     # ---- Focus picks ----
     focus_picks = rollup.get("focus_picks") or []
     if focus_picks:
@@ -190,21 +220,6 @@ def write_rollup(rollup: dict[str, Any], output_path: Path, warn_days: int, loud
                 if it.get("source_recording_title"):
                     bits.append(f"From: {it['source_recording_title']}")
                 _bullet_item(doc, it.get("action", ""), bits)
-
-    # ---- Carry-overs ----
-    carry = rollup.get("carry_overs") or []
-    if carry:
-        doc.add_heading("🔁 Carry-overs from prior weeks", level=2)
-        for co in carry:
-            days = int(co.get("days_open", 0) or 0)
-            prefix = _aging_emoji(days, warn_days, loud_days)
-            label = f"{prefix}[Open {days} days] {co.get('action', '')}"
-            bits = []
-            if co.get("owner"):
-                bits.append(f"Owner: {co['owner']}")
-            if co.get("source_recording_title"):
-                bits.append(f"From: {co['source_recording_title']}")
-            _bullet_item(doc, label, bits)
 
     # ---- Decisions ----
     decisions = rollup.get("decisions") or []
