@@ -211,11 +211,20 @@ if (-not $onedrive) {
     Write-Warn "Could not auto-detect OneDrive."
     $onedrive = Read-Host "Enter your OneDrive sync folder path (e.g., C:\Users\<you>\OneDrive)"
 }
+# Defensive: Read-Host can return $null when stdin is closed (e.g. CI environments
+# or sandboxed installs). Fall back to %USERPROFILE%\OneDrive so the install can
+# proceed; operator can still override via the auto-detect path or by editing
+# config.json post-install.
+if (-not $onedrive) {
+    $onedrive = Join-Path $env:USERPROFILE 'OneDrive'
+    Write-Warn "No OneDrive path supplied — defaulting to $onedrive"
+}
 $onedrive = $onedrive.Trim()
 if (-not (Test-Path $onedrive)) {
     Write-Warn "Path '$onedrive' does not exist."
     $createIt = Read-Host "Create it? [Y/n]"
-    if ($createIt -ne 'n') { New-Item -ItemType Directory -Path $onedrive -Force | Out-Null }
+    # Defensive: null (closed stdin) is treated the same as "Y" (the default).
+    if (-not $createIt -or $createIt -ne 'n') { New-Item -ItemType Directory -Path $onedrive -Force | Out-Null }
 }
 Write-Ok "OneDrive folder: $onedrive"
 $plaudFolder = Join-Path $onedrive 'Plaud Meetings'
