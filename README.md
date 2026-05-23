@@ -78,11 +78,16 @@ For anything else: contact the Gallant operator who installed this.
 
 ## Versions
 
+- **v2.1.4** — Windows install correctness pass. Four critical fixes validated on a clean `windows-latest` cloud runner: UTF-8 BOM on every `.ps1` file (Windows PowerShell was parser-erroring on the multi-byte chars used in banners); `install.ps1` probes 6 known Claude Code install locations after install (no shell restart needed); defensive null-handling on `Read-Host` returns; `schedule.ps1` drops the deprecated `[Microsoft.PowerShell.ScheduledJob.ScheduledJobTrigger]` type constraint that didn't ship with PowerShell 7. End-to-end install now lands all 3 Scheduled Tasks on a clean Windows machine.
 - **v2.1.0** — One Notion row per MEETING (was one row per action item). Action items render as interactive Notion checkboxes you can tick off. Word docs use ☐ ballot-box characters for the same visual checklist UX. Claude Code Windows install fixed (correct package name + Anthropic's official PowerShell installer).
 - **v2.0.0** — Cross-platform (Windows + Mac). Meeting-type routing from spoken opening line. Twice-daily ingestion (12:30 PM + 5:00 PM) + Friday 5:30 PM weekly rollup. Windows: Word docs in OneDrive folders. Mac: Notion. Weekly rollup filters to meeting types flagged `include_in_weekly_rollup: true` (default Kingsway Pharma only).
 - **v1.2.0** — Mac, Notion-only. Friday 5:00 PM weekly rollup chained as `/meetings-digest --days 7` → `/weekly-rollup`.
 - **v1.1.0** — Mac, Notion-only. Twice-daily schedule + dedup.
 - **v1.0.0** — Mac, Notion-only. Friday rollup.
+
+## Install correctness
+
+Cross-platform install behavior is validated end-to-end on a clean `windows-latest` GitHub Actions runner via [`.github/workflows/test-install.yml`](.github/workflows/test-install.yml). Each Gallant pre-ship gate runs `bootstrap → install → assert` against a fresh Windows VM: winget installs Node/Python/Claude Code, `install.ps1` walks all 6 setup steps, and a final assertion step verifies that all 3 Scheduled Tasks register, both skills land in `%USERPROFILE%\.claude\skills\`, and `config.json` parses with `platform=windows`. Workflow runs are visible under [Actions](https://github.com/GallantSolutions/plaud-meetings-digest/actions).
 
 ## Uninstall
 
