@@ -46,14 +46,15 @@ jobs:
           Write-Host "Architecture: $env:RUNNER_ARCH"
           winget --version
 
-      - name: Run bootstrap.ps1
+      - name: Run install.ps1 (against test-branch files, NOT bootstrap)
+        # Deliberately skips bootstrap.ps1 — bootstrap downloads the latest
+        # released tag from GitHub and would overwrite the checked-out test
+        # branch with whatever was last released, defeating per-branch testing.
+        # End-user bootstrap-from-release validation is gated by release-tagging
+        # discipline, not by this workflow.
         shell: pwsh
-        env:
-          # Bootstrap downloads + chains into install.ps1. We override the install
-          # location to keep things contained inside the runner workspace.
-          PLAUD_DIGEST_PREFIX: ${{ github.workspace }}\install-target
         run: |
-          .\bootstrap.ps1
+          .\install.ps1
         continue-on-error: true
 
       - name: Verify install.ps1 ran
