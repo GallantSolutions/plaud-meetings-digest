@@ -290,6 +290,45 @@ fi
 ok "Meeting routing configured"
 
 # ============================================================================
+# Step 5b — Heartbeat (Gallant operator telemetry)
+# ============================================================================
+printf "\n"
+say "Step 5b/7 — Heartbeat (operator alerts when something breaks)"
+printf "\n"
+printf "Gallant uses Healthchecks.io to alert the operator if a scheduled run\n"
+printf "doesn't complete on time. Setup runbook: OPERATOR-INSTALL-GUIDE.md.\n\n"
+
+HEARTBEAT_ENABLED="false"
+HEARTBEAT_BASE="${GALLANT_HEARTBEAT_BASE:-https://hc-ping.com}"
+CHECK_LUNCH="${GALLANT_HEARTBEAT_CHECK_LUNCH:-}"
+CHECK_EOD="${GALLANT_HEARTBEAT_CHECK_EOD:-}"
+CHECK_ROLLUP="${GALLANT_HEARTBEAT_CHECK_ROLLUP:-}"
+CHECK_AUTO_UPDATE="${GALLANT_HEARTBEAT_CHECK_AUTO_UPDATE:-}"
+
+ENV_PROVIDED=""
+if [[ -n "$CHECK_LUNCH$CHECK_EOD$CHECK_ROLLUP$CHECK_AUTO_UPDATE" ]]; then ENV_PROVIDED="yes"; fi
+
+if [[ -z "$ENV_PROVIDED" ]]; then
+  read -p "Enable heartbeat? [Y/n]: " HB_ENABLE
+  HB_ENABLE="${HB_ENABLE:-Y}"
+  if [[ "$HB_ENABLE" =~ ^[Yy]$ ]]; then
+    read -p "Ping base URL [default https://hc-ping.com]: " HB_BASE_IN
+    if [[ -n "$HB_BASE_IN" ]]; then HEARTBEAT_BASE="$HB_BASE_IN"; fi
+    read -p "Check UUID for daily 12:30 PM (lunch): " CHECK_LUNCH
+    read -p "Check UUID for daily 5:00 PM (eod): " CHECK_EOD
+    read -p "Check UUID for Friday 5:30 PM (rollup): " CHECK_ROLLUP
+    read -p "Check UUID for daily 3:00 AM (auto-update): " CHECK_AUTO_UPDATE
+  fi
+fi
+
+if [[ -n "$CHECK_LUNCH$CHECK_EOD$CHECK_ROLLUP$CHECK_AUTO_UPDATE" ]]; then
+  HEARTBEAT_ENABLED="true"
+  ok "Heartbeat enabled"
+else
+  warn "Heartbeat skipped — operator gets no alerts when jobs fail silently"
+fi
+
+# ============================================================================
 # Step 6 — Install skills + scripts + config
 # ============================================================================
 printf "\n"
@@ -323,12 +362,26 @@ template["destination"]["notion_parent_page_id"] = "$NOTION_PARENT_PAGE_ID" if "
 # Meeting routing overrides
 template["meeting_routing"]["types"] = json.loads('''$ROUTING_JSON''')
 
+# Heartbeat block (operator-supplied at install time)
+template["gallant_heartbeat"]["enabled"] = "$HEARTBEAT_ENABLED" == "true"
+template["gallant_heartbeat"]["ping_base_url"] = "$HEARTBEAT_BASE"
+template["gallant_heartbeat"]["checks"]["lunch"]       = "$CHECK_LUNCH" or None
+template["gallant_heartbeat"]["checks"]["eod"]         = "$CHECK_EOD" or None
+template["gallant_heartbeat"]["checks"]["rollup"]      = "$CHECK_ROLLUP" or None
+template["gallant_heartbeat"]["checks"]["auto_update"] = "$CHECK_AUTO_UPDATE" or None
+
 Path("$CONFIG_INSTALL").write_text(json.dumps(template, indent=2))
 EOF
 
 chmod 600 "$CONFIG_INSTALL"  # protect Notion API key
 ok "Skills installed at $SKILL_MEETINGS_INSTALL and $SKILL_ROLLUP_INSTALL"
 ok "Config written (mode 600 — Notion key protected)"
+
+# Write version stamp (for auto-update version comparison)
+BUNDLE_PREFIX="$SCRIPT_DIR"
+BUNDLE_VERSION=$(python3 -c "import json; print(json.loads(open('$CONFIG_SRC').read())['version'])")
+echo "$BUNDLE_VERSION" > "$BUNDLE_PREFIX/version.txt"
+ok "Bundle version stamped: $BUNDLE_VERSION -> $BUNDLE_PREFIX/version.txt"
 
 # ============================================================================
 # Step 7 — Schedule (lunch + EOD + Friday rollup)

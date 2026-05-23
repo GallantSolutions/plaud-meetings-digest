@@ -125,8 +125,52 @@ Accept defaults (**Y** when prompted). Defaults are:
 
 To customize later (e.g., add another meeting type): edit `~/.claude/skills/meetings-digest/config.json` and re-run the schedule script — no need to re-run the full install.
 
-### Schedule
-Accept default (**Y** when prompted). Installs all three jobs (lunch + EOD + Friday rollup).
+### Heartbeat (Step 4b/5b — operator alerts when something breaks)
+
+The installer prompts for Healthchecks.io check UUIDs — one per scheduled job (lunch / eod / rollup / auto-update). If you provide them, every scheduled run pings Healthchecks before/after it fires, and you get an email or Slack alert within ~1 hour when a run misses its window.
+
+**One-time Gallant setup (do this ONCE, ever):**
+1. Sign up at [healthchecks.io](https://healthchecks.io) using your operator email (free tier covers 20 checks)
+2. Create a project: "Gallant Client Installs"
+3. Add a Slack or email integration so missed pings notify you
+
+**Per-client setup (every new install — ~2 min):**
+
+Before sitting with the client, in Healthchecks → "+ Add Check" 4 times with these settings:
+
+| Check name | Period | Grace |
+|---|---|---|
+| `<client-slug> — plaud lunch` | 1 day | 30 min |
+| `<client-slug> — plaud EOD` | 1 day | 30 min |
+| `<client-slug> — plaud Friday rollup` | 1 week | 1 hour |
+| `<client-slug> — plaud auto-update` | 1 day | 1 hour |
+
+Copy each check's ping UUID (the 32-char hex string after `https://hc-ping.com/`). Paste them when the installer prompts during Step 4b (Windows) / 5b (Mac). Pressing Enter on all four skips heartbeat — operator gets no alerts but the install still completes.
+
+To set non-interactively (e.g., re-running install for a fresh sandbox), set:
+```bash
+export GALLANT_HEARTBEAT_CHECK_LUNCH=<uuid>
+export GALLANT_HEARTBEAT_CHECK_EOD=<uuid>
+export GALLANT_HEARTBEAT_CHECK_ROLLUP=<uuid>
+export GALLANT_HEARTBEAT_CHECK_AUTO_UPDATE=<uuid>
+```
+
+### Schedule (Step 6/7)
+Accept default (**Y** when prompted). Installs all FOUR jobs (lunch + EOD + Friday rollup + nightly auto-update at 3:00 AM).
+
+### Auto-update (silent, runs nightly at 3:00 AM)
+
+The bundle keeps itself current. When you publish a new GitHub Release (`gh release create vX.Y.Z`), every client install picks it up overnight — no client action required. The current version is snapshotted to `<install-prefix>/.versions/<old-tag>/` before each update, so rollback is possible.
+
+**To pin a client to a specific version** (e.g., if a bad release shipped):
+1. SSH / TeamViewer into the client machine
+2. Edit `~\.claude\skills\meetings-digest\config.json`
+3. Set `gallant_auto_update.pinned_version` to a release tag (e.g., `"v2.1.4"`)
+4. Auto-update will respect the pin until you set it back to `null`
+
+**To roll back manually**:
+- Windows: copy contents of `%LOCALAPPDATA%\plaud-meetings-digest\.versions\<old-tag>\` over `%LOCALAPPDATA%\plaud-meetings-digest\`, then re-run `scripts\schedule.ps1`
+- Mac: same but at `~/Library/Application\ Support/plaud-meetings-digest/`
 
 ---
 

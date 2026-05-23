@@ -76,8 +76,17 @@ For anything else: contact the Gallant operator who installed this.
 - Notion API key (Mac) is stored in `~/.claude/skills/meetings-digest/config.json` with file permissions `600`.
 - Plaud OAuth token is managed by the Plaud MCP server in its own credential store.
 
+## Updates & alerting (operator-side)
+
+Updates push automatically. A nightly Scheduled Task (Windows) / launchd job (Mac) at **3:00 AM local time** checks GitHub Releases; if a new release is published, the bundle replaces itself silently (snapshotting the previous version to `<install-prefix>/.versions/` for rollback). You'll see the new version in the next morning's run — zero client action required.
+
+Every scheduled run pings [Healthchecks.io](https://healthchecks.io) before/after it runs. If a ping doesn't arrive within the expected window (machine asleep, Claude died, Scheduled Task de-registered, network down), the operator gets an email / Slack alert automatically — usually within ~1 hour of the missed window. Operator runbook for per-client Healthchecks setup: see [`OPERATOR-INSTALL-GUIDE.md`](OPERATOR-INSTALL-GUIDE.md).
+
+To pin to a specific version (e.g., if a bad release ships): edit `~\.claude\skills\meetings-digest\config.json` and set `gallant_auto_update.pinned_version` to a release tag (e.g., `"v2.1.4"`). Auto-update will respect the pin. Set back to `null` to unpin.
+
 ## Versions
 
+- **v2.2.0** — Gallant standard install pattern retrofitted. Adds (a) nightly auto-update Scheduled Task / launchd job that pulls latest GitHub Release at 3 AM local; (b) Healthchecks.io heartbeat wrapping on every scheduled run so the operator gets alerted to silent failures within ~1 hour; (c) soft rollback via per-version snapshots at `<install-prefix>/.versions/`. Reusable as the `install-pattern` skill (`.claude/skills/install-pattern/`) — same pattern will land in every future client-facing build.
 - **v2.1.4** — Windows install correctness pass. Four critical fixes validated on a clean `windows-latest` cloud runner: UTF-8 BOM on every `.ps1` file (Windows PowerShell was parser-erroring on the multi-byte chars used in banners); `install.ps1` probes 6 known Claude Code install locations after install (no shell restart needed); defensive null-handling on `Read-Host` returns; `schedule.ps1` drops the deprecated `[Microsoft.PowerShell.ScheduledJob.ScheduledJobTrigger]` type constraint that didn't ship with PowerShell 7. End-to-end install now lands all 3 Scheduled Tasks on a clean Windows machine.
 - **v2.1.0** — One Notion row per MEETING (was one row per action item). Action items render as interactive Notion checkboxes you can tick off. Word docs use ☐ ballot-box characters for the same visual checklist UX. Claude Code Windows install fixed (correct package name + Anthropic's official PowerShell installer).
 - **v2.0.0** — Cross-platform (Windows + Mac). Meeting-type routing from spoken opening line. Twice-daily ingestion (12:30 PM + 5:00 PM) + Friday 5:30 PM weekly rollup. Windows: Word docs in OneDrive folders. Mac: Notion. Weekly rollup filters to meeting types flagged `include_in_weekly_rollup: true` (default Kingsway Pharma only).

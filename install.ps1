@@ -52,7 +52,7 @@ $ScriptsInstall       = Join-Path $SkillMeetingsInstall 'scripts'
 $ConfigInstall        = Join-Path $SkillMeetingsInstall 'config.json'
 $StateDir             = Join-Path $SkillMeetingsInstall 'state'
 
-Write-Header "Plaud Meetings Digest — Windows Installer (v2.0.0)"
+Write-Header "Plaud Meetings Digest — Windows Installer (v2.2.0)"
 
 # ============================================================================
 # Step 1 — Prerequisites
@@ -272,6 +272,56 @@ if ($customize -eq 'n') {
 Write-Ok "Configured $($routing.Length) meeting type(s)"
 
 # ============================================================================
+# Step 4b — Heartbeat (Gallant operator telemetry)
+# ============================================================================
+Write-Header "Step 4b — Heartbeat (operator alerts when something breaks)"
+Write-Host "Gallant uses Healthchecks.io to alert the operator if a scheduled run"
+Write-Host "doesn't complete on time (machine asleep, Claude died, task de-registered,"
+Write-Host "network down). Setup runbook: scripts\..\OPERATOR-INSTALL-GUIDE.md."
+Write-Host ""
+Write-Host "Operator: provide one Healthchecks ping UUID per scheduled job, or paste"
+Write-Host "a base path + four UUIDs. Press Enter on any prompt to skip that check."
+Write-Host ""
+
+$heartbeatEnabled = $false
+$heartbeatBase = 'https://hc-ping.com'
+$checkLunch = $null
+$checkEod = $null
+$checkRollup = $null
+$checkAutoUpdate = $null
+
+# Env-var path (non-interactive sandboxed installs + cleaner operator flow)
+if ($env:GALLANT_HEARTBEAT_BASE) { $heartbeatBase = $env:GALLANT_HEARTBEAT_BASE }
+if ($env:GALLANT_HEARTBEAT_CHECK_LUNCH)       { $checkLunch       = $env:GALLANT_HEARTBEAT_CHECK_LUNCH }
+if ($env:GALLANT_HEARTBEAT_CHECK_EOD)         { $checkEod         = $env:GALLANT_HEARTBEAT_CHECK_EOD }
+if ($env:GALLANT_HEARTBEAT_CHECK_ROLLUP)      { $checkRollup      = $env:GALLANT_HEARTBEAT_CHECK_ROLLUP }
+if ($env:GALLANT_HEARTBEAT_CHECK_AUTO_UPDATE) { $checkAutoUpdate  = $env:GALLANT_HEARTBEAT_CHECK_AUTO_UPDATE }
+
+$envProvided = $checkLunch -or $checkEod -or $checkRollup -or $checkAutoUpdate
+if (-not $envProvided) {
+    $enable = Read-Host "Enable heartbeat? [Y/n]"
+    if (-not $enable -or $enable -ne 'n') {
+        $baseInput = Read-Host "Ping base URL [default https://hc-ping.com]"
+        if ($baseInput) { $heartbeatBase = $baseInput.Trim() }
+        $checkLunch      = Read-Host "Check UUID for daily 12:30 PM (lunch)"
+        $checkEod        = Read-Host "Check UUID for daily 5:00 PM (eod)"
+        $checkRollup     = Read-Host "Check UUID for Friday 5:30 PM (rollup)"
+        $checkAutoUpdate = Read-Host "Check UUID for daily 3:00 AM (auto-update)"
+    }
+}
+# Normalize empty strings to $null
+foreach ($v in 'checkLunch','checkEod','checkRollup','checkAutoUpdate') {
+    if (-not (Get-Variable $v -ValueOnly)) { Set-Variable $v -Value $null }
+    else { Set-Variable $v -Value (Get-Variable $v -ValueOnly).Trim() }
+}
+if ($checkLunch -or $checkEod -or $checkRollup -or $checkAutoUpdate) {
+    $heartbeatEnabled = $true
+    Write-Ok "Heartbeat enabled"
+} else {
+    Write-Warn "Heartbeat skipped — operator gets no alerts when jobs fail silently"
+}
+
+# ============================================================================
 # Step 5 — Install skills + scripts + config
 # ============================================================================
 Write-Header "Step 5/6 — Installing skills into Claude Code"
@@ -293,11 +343,29 @@ $configTemplate.destination.type = 'word_onedrive'
 $configTemplate.destination.onedrive_folder = $onedrive
 $configTemplate.meeting_routing.types = $routing
 
+# Heartbeat block (operator-supplied)
+$configTemplate.gallant_heartbeat.enabled = $heartbeatEnabled
+$configTemplate.gallant_heartbeat.ping_base_url = $heartbeatBase
+$configTemplate.gallant_heartbeat.checks.lunch = $checkLunch
+$configTemplate.gallant_heartbeat.checks.eod = $checkEod
+$configTemplate.gallant_heartbeat.checks.rollup = $checkRollup
+$configTemplate.gallant_heartbeat.checks.auto_update = $checkAutoUpdate
+
 $configJson = $configTemplate | ConvertTo-Json -Depth 10
 Set-Content -Path $ConfigInstall -Value $configJson -Encoding UTF8
 
 Write-Ok "Skills installed at $SkillMeetingsInstall and $SkillRollupInstall"
 Write-Ok "Config written to $ConfigInstall"
+
+# ---- Write version stamp (for auto-update version comparison) ------------
+# Bundle prefix is wherever bootstrap landed us — derive from $ScriptDir.
+$BundlePrefix = $ScriptDir
+$VersionFile = Join-Path $BundlePrefix 'version.txt'
+# Read version from package.json equivalent — use the config version as the
+# canonical version stamp (single source of truth for the bundle's identity).
+$bundleVersion = $configTemplate.version
+Set-Content -Path $VersionFile -Value $bundleVersion -Encoding UTF8
+Write-Ok "Bundle version stamped: $bundleVersion -> $VersionFile"
 
 # ============================================================================
 # Step 6 — Schedule three jobs
