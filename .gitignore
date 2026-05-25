@@ -3,3 +3,4 @@ __pycache__/
 .DS_Store
 .notion-db-id.tmp
 .validate-build/
+dist/

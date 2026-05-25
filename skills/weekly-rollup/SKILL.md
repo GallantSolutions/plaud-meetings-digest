@@ -28,7 +28,7 @@ Runs **Friday at 5:30 PM** local time, scheduled 30 minutes after the Friday 5:0
 
 A single document (Word `.docx` on Windows, Notion page on Mac) titled `<Meeting Type> — Weekly Rollup, Week of <YYYY-MM-DD>`. If multiple meeting types are flagged for rollup, one document per type. Sections, in order (v2.2.4+ professional pharma-corporate styling — no emoji, ALL CAPS section headers in deep navy with subtle bottom rules):
 
-1. **OPEN ITEMS FROM PRIOR WEEKS** — items added before this week that are still in the active backlog (within the last 30 days), sorted oldest-first, rendered as a **4-column table**: `Action Item | Days Open | Status | Source Meeting`. Status column uses text labels: `CRITICAL` (21+ days, deep red), `ATTENTION` (14+ days, deep amber), `OPEN` (under 14 days, graphite). When zero items: shows `All prior-week items closed. No carry-overs this week.`
+1. **OPEN ITEMS FROM PRIOR WEEKS** — items added before this week that are still in the active backlog (within the last 30 days) AND have NOT been marked closed via the user's `[x]` gesture, sorted oldest-first, rendered as a **5-column table** (v2.2.5+): `Action Item | Days Open | Status | Source Meeting | Done?`. Status column uses text labels: `CRITICAL` (21+ days, deep red), `ATTENTION` (14+ days, deep amber), `OPEN` (under 14 days, graphite). The `Done?` column carries a `[ ]` checkbox per row; the user flips it to `[x]` in their Saturday review and the next Friday's rollup parses prior rollups for those marks (via `harvest_closures()`), persists them to `closures.jsonl`, and suppresses closed items going forward. When zero items: shows `All prior-week items closed. No carry-overs this week.`
 2. **NEXT WEEK'S FOCUS PICKS** — Claude's pick of 3–5 highest-leverage items to tackle Monday. Numbered list. Each: action (bold) + "Rationale:" line + Owner / Due / From detail line.
 3. **HIGH PRIORITY (THIS WEEK)** — items added this week with `Priority: High`
 4. **ACTION ITEMS BY CONTEXT** — items added this week, grouped by `context` (Sales / Operations / Strategic / etc.)
@@ -54,10 +54,12 @@ A single document (Word `.docx` on Windows, Notion page on Mac) titled `<Meeting
 
 For each meeting type to roll up:
 
-1. Call `state_store.read_items(since, until, meeting_types=[mtype])` to fetch the week's action items as a list of dicts.
-2. Call `state_store.read_items(meeting_types=[mtype], created_before=since)` and filter to items still in the active backlog (within `weekly_rollup.carry_over_window_days`, default 30) — these are carry-overs.
+0. **(v2.2.5+) Harvest closures from prior rollups first.** Before reading the items, walk the meeting type's OneDrive root for recent rollup `.docx` files via `rollup_docx_writer.harvest_closures(meeting_root, prefix=<rollup_filename_prefix>)`, dedupe by `item_id`, and call `state_store.append_closures()` on the result. This persists user-side `[x]` marks from last Saturday's review BEFORE the new rollup queries the backlog — so closed items don't reappear in this week's carry-over table.
 
-State store is read-only here. The skill does NOT modify the JSONL.
+1. Call `state_store.read_items(since, until, meeting_types=[mtype])` to fetch the week's action items as a list of dicts. (Defaults to `exclude_closed=True`.)
+2. Call `state_store.read_items(meeting_types=[mtype], created_before=since)` and filter to items still in the active backlog (within `weekly_rollup.carry_over_window_days`, default 30) — these are carry-overs. Each row carries a stable `item_id` (8-char hash of action + source_file_id) that the rollup writer embeds as a Word-hidden text run in the Action cell so closure parsing can correlate `[x]` marks back to JSONL rows even if the user lightly edits the visible action wording.
+
+State store is read-only for items here (the skill does NOT modify the items JSONL). Closures append to `closures.jsonl` only.
 
 ## Synthesize
 

@@ -8,6 +8,15 @@ after it queries state_store.py for the week's items) and writes a single
 For this client, only Kingsway Pharma triggers a rollup. The skill is
 responsible for filtering items by meeting_type before passing them here.
 
+v2.2.5+ — closure tracking. The carry-over table includes a `Done?` column
+with a `[ ]` checkbox per row, plus a Word-hidden `id:XXXXXXXX` text run in
+the Action cell. Each Friday before generating the new rollup, the skill calls
+parse_recent_rollup_closures() against prior rollups in the carry-over window;
+items whose Done? cell now contains `[x]` (any case) get appended to
+closures.jsonl and suppressed from subsequent rollups. This makes the rollup
+itself the user's closure surface — collapsing the close gesture to one file,
+one weekly review, one minute. See v2.2.5 ship notes.
+
 Input JSON shape:
 {
   "meeting_type": "Kingsway Pharma",
@@ -39,7 +48,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -155,6 +164,33 @@ def _set_cell_text(cell, text: str, *, bold=False, color=None, size=10, italic=F
     _set_run(r, bold=bold, italic=italic, size=size, color=color or GALLANT_GRAPHITE)
 
 
+def _add_hidden_run(paragraph, text: str) -> None:
+    """Append a Word-hidden text run (w:vanish) — invisible in print, parseable from XML."""
+    r = paragraph.add_run(text)
+    rPr = r._r.get_or_add_rPr()
+    vanish = OxmlElement("w:vanish")
+    rPr.append(vanish)
+    # Also belt-and-suspenders: tiny + muted so even if a Word setting reveals
+    # hidden text, the user sees something unobtrusive instead of a giant ID.
+    _set_run(r, size=1, color=GALLANT_MUTED)
+
+
+def _set_action_cell(cell, action_text: str, item_id: str) -> None:
+    """
+    Carry-over Action cell: visible action text plus hidden item_id so the
+    closure parser can correlate a [x] mark back to the JSONL row even if
+    the user has lightly edited the action wording.
+    """
+    cell.text = ""
+    p = cell.paragraphs[0]
+    p.paragraph_format.space_before = Pt(2)
+    p.paragraph_format.space_after = Pt(2)
+    visible = p.add_run(action_text or "")
+    _set_run(visible, size=10, color=GALLANT_GRAPHITE)
+    if item_id:
+        _add_hidden_run(p, f" id:{item_id}")
+
+
 def _shade_cell(cell, hex_color: str) -> None:
     """Apply a subtle background shade to a table cell."""
     tcPr = cell._tc.get_or_add_tcPr()
@@ -214,17 +250,36 @@ def write_rollup(rollup: dict[str, Any], output_path: Path, warn_days: int, loud
     carry = rollup.get("carry_overs") or []
     _section_header(doc, "Open Items from Prior Weeks")
 
+    # User-facing closure instruction — one short sentence above the table.
     if carry:
+        instr = doc.add_paragraph()
+        instr.paragraph_format.space_before = Pt(4)
+        instr.paragraph_format.space_after = Pt(6)
+        r = instr.add_run(
+            "To close an item, change "
+        )
+        _set_run(r, italic=True, size=10, color=GALLANT_MUTED)
+        r2 = instr.add_run("[ ]")
+        _set_run(r2, italic=True, size=10, bold=True, color=GALLANT_DEEP_NAVY)
+        r3 = instr.add_run(" to ")
+        _set_run(r3, italic=True, size=10, color=GALLANT_MUTED)
+        r4 = instr.add_run("[x]")
+        _set_run(r4, italic=True, size=10, bold=True, color=GALLANT_DEEP_NAVY)
+        r5 = instr.add_run(
+            " in the Done? column, then save. Next Friday's rollup will exclude it. Closures persist forever."
+        )
+        _set_run(r5, italic=True, size=10, color=GALLANT_MUTED)
+
         carry_sorted = sorted(carry, key=lambda c: int(c.get("days_open", 0) or 0), reverse=True)
 
-        table = doc.add_table(rows=1, cols=4)
+        table = doc.add_table(rows=1, cols=5)
         table.autofit = False
         table.allow_autofit = False
-        widths = [Inches(3.6), Inches(0.9), Inches(1.0), Inches(1.5)]
+        widths = [Inches(3.0), Inches(0.8), Inches(1.0), Inches(1.4), Inches(0.7)]
         # Header row
         hdr = table.rows[0]
         hdr_cells = hdr.cells
-        for i, label in enumerate(["Action Item", "Days Open", "Status", "Source Meeting"]):
+        for i, label in enumerate(["Action Item", "Days Open", "Status", "Source Meeting", "Done?"]):
             _set_cell_text(hdr_cells[i], label, bold=True, color=GALLANT_DEEP_NAVY, size=10)
             _shade_cell(hdr_cells[i], "F2F4F7")
             hdr_cells[i].width = widths[i]
@@ -234,12 +289,13 @@ def write_rollup(rollup: dict[str, Any], output_path: Path, warn_days: int, loud
             days = int(co.get("days_open", 0) or 0)
             status_text, status_color = _aging_label(days, warn_days, loud_days)
             row = table.add_row()
-            for i in range(4):
+            for i in range(5):
                 row.cells[i].width = widths[i]
-            _set_cell_text(row.cells[0], co.get("action", ""), size=10)
+            _set_action_cell(row.cells[0], co.get("action", ""), co.get("item_id", ""))
             _set_cell_text(row.cells[1], str(days), size=10, bold=True, color=status_color)
             _set_cell_text(row.cells[2], status_text, size=10, bold=True, color=status_color)
             _set_cell_text(row.cells[3], co.get("source_recording_title", ""), size=10, italic=True, color=GALLANT_MUTED)
+            _set_cell_text(row.cells[4], "[ ]", size=11, bold=True, color=GALLANT_DEEP_NAVY)
     else:
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(4)
@@ -482,11 +538,142 @@ def resolve_output_path(rollup: dict[str, Any], base_dir: Path, config: dict[str
     return folder / filename
 
 
+# ---------------------------------------------------------------------------
+# Closure parsing — read [x] marks from prior rollup .docx files
+# ---------------------------------------------------------------------------
+
+# Any of these in the Done? cell = closed. Liberal on purpose: Word autocorrect
+# can transform [x] into curly variants, and operators may copy from training
+# materials that use ✓ or ✔.
+_CLOSED_TOKENS = ("[x]", "[X]", "☒", "☑", "✓", "✔", "✗", "✘")
+
+
+def _cell_closed(cell_text: str) -> bool:
+    s = (cell_text or "").strip()
+    if not s:
+        return False
+    if s in ("[ ]", "[]"):
+        return False
+    return any(tok in s for tok in _CLOSED_TOKENS)
+
+
+def _is_carryover_table(table) -> bool:
+    """Return True iff this table's header row matches the carry-over schema."""
+    try:
+        hdr = [c.text.strip().lower() for c in table.rows[0].cells]
+    except (IndexError, AttributeError):
+        return False
+    return (
+        len(hdr) >= 5
+        and "action item" in hdr[0]
+        and "done" in hdr[-1]
+    )
+
+
+def parse_rollup_closures(rollup_path: Path) -> list[dict[str, Any]]:
+    """
+    Parse a single rollup .docx for `[x]`-marked carry-overs. Returns one
+    record per closed row: {item_id, closed_at, closed_via, source_rollup,
+    action_text}. Rows without a recoverable id are skipped (logged via stderr
+    so the operator can diagnose if a Word edit damaged the hidden id).
+    """
+    if not rollup_path.exists():
+        return []
+    try:
+        doc = Document(str(rollup_path))
+    except Exception as e:
+        sys.stderr.write(f"WARN: could not open rollup {rollup_path.name}: {e}\n")
+        return []
+
+    closures: list[dict[str, Any]] = []
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    for table in doc.tables:
+        if not _is_carryover_table(table):
+            continue
+        for row in table.rows[1:]:
+            cells = row.cells
+            if len(cells) < 5:
+                continue
+            if not _cell_closed(cells[-1].text):
+                continue
+            action_cell_text = cells[0].text  # includes hidden id run via vanish
+            m = re.search(r"id:([0-9A-Fa-f]{6,16})", action_cell_text)
+            if not m:
+                sys.stderr.write(
+                    f"WARN: closure marked in {rollup_path.name} but no id: tag found "
+                    f"(action='{action_cell_text[:60]}...') — skipped\n"
+                )
+                continue
+            visible_action = re.sub(r"\s*id:[0-9A-Fa-f]{6,16}\s*", "", action_cell_text).strip()
+            closures.append({
+                "item_id": m.group(1).upper(),
+                "closed_at": now_iso,
+                "closed_via": "rollup_checkbox",
+                "source_rollup": rollup_path.name,
+                "action_text": visible_action,
+            })
+    return closures
+
+
+def find_recent_rollups(meeting_root: Path, prefix: str, since_days: int = 60) -> list[Path]:
+    """
+    Walk the meeting type's root folder (e.g., .../Kingsway Pharma/) and return
+    all rollup .docx files (matching <prefix>*.docx) modified in the last
+    since_days days. Sorted newest-first.
+    """
+    if not meeting_root.exists():
+        return []
+    cutoff = datetime.now().timestamp() - (since_days * 86400)
+    results: list[Path] = []
+    for path in meeting_root.rglob(f"{prefix}*.docx"):
+        try:
+            if path.stat().st_mtime >= cutoff:
+                results.append(path)
+        except OSError:
+            continue
+    results.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return results
+
+
+def harvest_closures(meeting_root: Path, prefix: str, since_days: int = 60) -> list[dict[str, Any]]:
+    """
+    One-shot harvest: walk recent rollups, parse each for [x] marks, dedupe
+    by item_id (keep the earliest closure record). Caller is responsible for
+    passing the result to state_store.append_closures().
+    """
+    aggregated: dict[str, dict[str, Any]] = {}
+    for rollup in find_recent_rollups(meeting_root, prefix, since_days):
+        for rec in parse_rollup_closures(rollup):
+            iid = rec["item_id"]
+            # Keep the earliest occurrence (oldest rollup) as the source of truth
+            existing = aggregated.get(iid)
+            if existing is None:
+                aggregated[iid] = rec
+    return list(aggregated.values())
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True, help="Path to JSON synthesis file")
+    parser.add_argument("--input", help="Path to JSON synthesis file (rollup write mode)")
     parser.add_argument("--output", help="Explicit output path (overrides routing)")
+    parser.add_argument("--harvest-closures", metavar="MEETING_ROOT",
+                        help="Walk a meeting-type root folder for KPR*.docx files, parse [x] marks, print closure JSONL to stdout")
+    parser.add_argument("--prefix", default="KPR.", help="Rollup filename prefix (default: KPR.)")
+    parser.add_argument("--since-days", type=int, default=60)
     args = parser.parse_args()
+
+    if args.harvest_closures:
+        root = Path(args.harvest_closures).expanduser()
+        closures = harvest_closures(root, args.prefix, args.since_days)
+        for rec in closures:
+            print(json.dumps(rec, ensure_ascii=False))
+        sys.stderr.write(f"harvested {len(closures)} closure(s) from rollups under {root}\n")
+        return 0
+
+    if not args.input:
+        sys.stderr.write("ERROR: --input required for rollup write mode\n")
+        return 1
 
     config = load_config()
     base_dir_str = config.get("destination", {}).get("onedrive_folder")

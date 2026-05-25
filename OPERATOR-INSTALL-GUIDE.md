@@ -50,6 +50,18 @@ bash <(curl -fsSL https://raw.githubusercontent.com/GallantSolutions/plaud-meeti
 
 **Non-negotiable.** Run the appropriate one-liner on YOUR computer with YOUR Plaud + a throwaway Notion page / OneDrive folder. Verify the full flow before you go.
 
+### 3. Print the client user guide for the LABS-branded folder
+
+The client manual is the leave-behind. It lives at `CLIENT-USER-GUIDE.md` (source of truth) and renders to a board-grade `.docx` via:
+
+```bash
+python3 scripts/build_client_guide.py
+```
+
+Output lands at `dist/CLIENT-USER-GUIDE.docx`. Open in Word, print double-sided on letter paper (color recommended — status labels in the rollup section reference brand colors), slip into a Gallant LABS-branded folder. Hand it to the client at the start of the install visit.
+
+The .docx is regenerated from markdown each release; do not edit the .docx by hand. To change wording, edit `CLIENT-USER-GUIDE.md` and re-run the build.
+
 ---
 
 ## On the client's computer — the one-liner install
