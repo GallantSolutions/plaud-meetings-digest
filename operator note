@@ -33,3 +33,40 @@ python -c "from pathlib import Path; p = Path.home() / '.claude' / 'skills' / 'm
 
 
 npx -y @plaud-ai/mcp@latest login
+
+
+---
+
+
+One-line fix — rewrites the file as clean UTF-8 (no BOM):
+
+
+$p = "$HOME\.claude\skills\meetings-digest\config.json"
+$content = Get-Content $p -Raw
+[System.IO.File]::WriteAllText($p, $content, [System.Text.UTF8Encoding]::new($false))
+Then verify Python can now read it cleanly:
+
+
+python -c "import json; from pathlib import Path; p = Path.home() / '.claude' / 'skills' / 'meetings-digest' / 'config.json'; c = json.loads(p.read_text()); print('OK — version:', c['version'])"
+Should print OK — version: 2.2.6. Once that works, digest-runner will run.
+
+On Plaud OAuth — verify with this (the login command may have silently succeeded OR not be the right subcommand):
+
+
+claude mcp list
+You should see something like plaud or @plaud-ai/mcp listed. If yes → MCP is registered (OAuth may also have happened silently). If no → we need to re-register.
+
+Also try:
+
+
+npx -y @plaud-ai/mcp@latest --help
+So we see what subcommands actually exist.
+
+Send me:
+
+Whether the BOM fix worked (Python output)
+claude mcp list output
+The --help output from Plaud MCP
+After the BOM fix, the runner will load config and try to actually fetch Plaud meetings. If Plaud MCP isn't OAuth'd, it'll fail with a different error pointing us at the OAuth issue.
+
+(I'll fold the BOM-safe config load into v2.2.7 — proper fix is encoding='utf-8-sig' in digest-runner.py.)
