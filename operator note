@@ -79,3 +79,7 @@ python -c "import json; from pathlib import Path; p = Path.home() / '.claude' / 
 
 
 python -c "import json; from pathlib import Path; p = Path.home() / '.claude' / 'skills' / 'meetings-digest' / 'config.json'; c = json.loads(p.read_text()); print('OK — version:', c['version'])"
+
+
+npx -y @plaud-ai/mcp@latest install
+
