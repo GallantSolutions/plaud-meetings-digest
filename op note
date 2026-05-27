@@ -1,0 +1,1 @@
+Get-ChildItem -Path "$env:LOCALAPPDATA","$env:USERPROFILE\.claude","$env:USERPROFILE\.local","$env:APPDATA\npm" -Filter "claude*" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.exe','.cmd','.bat') } | Select-Object -ExpandProperty FullName
