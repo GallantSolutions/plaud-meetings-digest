@@ -1,11 +1,11 @@
 ---
 name: meetings-digest
-description: Pull Plaud recordings, route each one to the correct meeting-type folder based on the spoken opening line (e.g., "Kingsway Pharma with John Smith"), extract structured action items / decisions / open questions, and write the output to the configured destination — Word documents in OneDrive on Windows, Notion database rows on Mac. Also append items to a local JSONL state file so the weekly-rollup skill can synthesize cross-meeting summaries.
+description: Pull Plaud recordings, route each one to the correct meeting-type folder based on the spoken opening line (e.g., "Kingsway Pharma with John Smith"), and write Plaud's native note (summary, action items, key points) 1:1 into a Word document in OneDrive on Windows or a Notion row on Mac. Lightly extracts only the filename metadata (title, attendees) — the actual meeting content comes verbatim from Plaud's get_note().
 ---
 
 # meetings-digest
 
-This skill pulls recordings from Plaud AI via the Plaud MCP server, re-extracts structured information from the transcripts (NOT trusting Plaud's built-in AI summary), routes each recording to the correct meeting-type folder, and writes the output to the configured destination.
+This skill pulls recordings from Plaud AI via the Plaud MCP server, calls `get_note()` to fetch Plaud's native structured summary, and writes that summary **1:1** into a Word document in the routed OneDrive folder (or a Notion row on Mac). Plaud's own summary is the source of truth — Claude does NOT re-paraphrase or re-extract action items. Claude's only reasoning role per meeting is (a) routing to the correct bucket via keyword match on the opening 30 seconds of transcript, and (b) generating a short 3-6 word title for the filename.
 
 **Destination branches by OS** (picked at install time, written into `config.json`):
 
@@ -56,12 +56,11 @@ Call `list_files` with the resolved date range. Filter to recordings only. Sort 
 **Apply dedup filter.** Remove any recording whose `file_id` is in the dedup state — unless `--force`. If everything is deduped out, exit cleanly with `No new recordings since last run.`
 
 For each remaining recording:
-1. Call `get_transcript` to fetch the full transcript with speaker labels + timestamps.
-2. Read recording metadata: title, duration, recorded_at, speakers.
+1. Call `get_transcript` to fetch the first ~30 seconds of transcript (just enough for keyword routing — see "Route by meeting type" below).
+2. Call `get_note` to fetch Plaud's native structured summary. **This is the meeting content that will be written 1:1 into the docx.** Capture the response as `plaud_note_markdown` (it's already markdown; do not paraphrase, re-extract, or transform it).
+3. Read recording metadata: title, duration, recorded_at, speakers.
 
-**Do NOT call `get_note`.** We re-extract from the transcript ourselves.
-
-If a recording has no transcript yet (still processing), skip it AND do not mark it processed in dedup state (so next run picks it up once Plaud finishes).
+If a recording has no transcript yet (still processing), skip it AND do not mark it processed in dedup state (so next run picks it up once Plaud finishes). Same applies if `get_note` returns empty / not-yet-summarized.
 
 ## Route by meeting type
 
@@ -92,24 +91,9 @@ For each transcript, identify the meeting type by scanning the first `scan_first
 
 Recording opens with "Kingsway Pharma meeting with John Smith…" → routes to `Kingsway Pharma/` AND will appear in the Friday rollup. Recording opens with "Sunday morning church reflection…" → routes to `Church/` and stays out of the rollup.
 
-## Extract structured information
+## Extract minimum metadata for filename + routing
 
-For each transcript, identify these categories. Stay disciplined — only include items the transcript actually supports.
-
-### Recap (v2.2.4+)
-
-**A 2-3 sentence executive summary of what the meeting was ABOUT and what came out of it.** Renders at the top of the Word document — the operator scans it in 5 seconds before deciding whether to read the rest. Professional pharma tone — no marketing language, no filler.
-
-Good:
-- "Reviewed Q3 forecast scenarios with John Smith. Aligned on the conservative case given regulatory uncertainty. John to circulate updated deck by Friday; Garrett to confirm Q4 commit numbers Monday."
-- "Pricing pushback from Sarah's team on the new tier structure. Agreed to consolidate from 5 tiers to 3, with operational sign-off required from Sarah's group before the proposal goes out."
-
-Bad:
-- "Had a great conversation about Q3." — too vague, no specifics
-- "John said X. Then Sarah said Y. Then we talked about Z. Then..." — turn-by-turn replay; the action items + decisions sections cover that
-- "It was a productive meeting that covered many important topics." — marketing-speak filler
-
-Set as `recap` in the JSON input to docx_writer.py.
+In v2.3.0 the meeting BODY comes from Plaud's `get_note()` verbatim. Claude only generates the small handful of fields needed for filename construction + routing.
 
 ### Meeting title (the filename component)
 
@@ -144,35 +128,13 @@ Rules:
 
 Set this as `attendees` in the JSON input to docx_writer.py — a list of strings.
 
-### Action items
+### Action items, decisions, key points, quotes — DO NOT extract these
 
-A line counts as an action item if it has BOTH:
-- An imperative or commitment ("we need to," "I'll send," "let's get," "follow up on…", "by end of week," "before our next call")
-- AND an implied or explicit owner (specific person named, or "I" / "we" where the speaker is identifiable)
+Plaud's `get_note()` already returns these as part of its structured summary, formatted to Plaud's conventions. **Pass that summary through verbatim.** Do not re-derive, paraphrase, or split it into your own fields. The weekly-rollup skill still does cross-meeting synthesis on Friday — that's where Claude reasoning lives now. Per-meeting documents are Plaud 1:1.
 
-For each, extract: **owner**, **action** (5–15 words), **due** (resolved to absolute date if mentioned), **priority** (High/Medium/Low — inferred from urgency cues), **context** (from `contexts` list in config — best fit; ask only if no contexts make sense; default to first context), **source_timestamp** (HH:MM:SS into recording).
+### State-JSONL note (v2.3.0 behavior)
 
-Skip:
-- Discussion-only mentions
-- Hypotheticals
-- Past actions
-- Soft asks ("would be nice")
-
-### Decisions made
-
-Things explicitly decided. Look for "OK, let's go with…", "Decided:", "Final answer:", "We're going to…"
-
-Each: **what**, **why** (if stated), **source_timestamp**.
-
-### Open questions
-
-Questions raised but not resolved. "What about…", "I don't know…", "should we…", "we need to figure out…"
-
-Each: **question**, **raised_by**, **source_timestamp**.
-
-### Notable quotes (optional, max 3–5 per meeting)
-
-Direct quotes worth preserving. Each: **quote**, **speaker**, **source_timestamp**.
+Because Claude no longer parses individual action items from each meeting, the per-action `action-items.jsonl` lines are derived best-effort by the weekly-rollup skill from the Plaud notes themselves at rollup time. Per-meeting writes still append a single JSONL row recording that the meeting was processed (file_id, meeting_type, recorded_at, title, plaud_note_markdown) so the rollup has substrate to read from.
 
 ## Write to the configured destination
 
@@ -180,25 +142,24 @@ Branch on `destination.type`:
 
 ### Mode A: `word_onedrive` (Windows default)
 
-For each processed recording, build a JSON object matching the `docx_writer.py` input shape:
+For each processed recording, build a JSON object matching the `docx_writer.py` input shape (v2.3.0):
 
 ```json
 {
   "meeting_type": "Kingsway Pharma",
   "recording_title": "Q3 Plans",
   "attendees": ["John Smith"],
-  "recap": "Reviewed Q3 forecast scenarios with John Smith. Aligned on the conservative case given regulatory uncertainty. John to circulate updated deck by Friday.",
   "recorded_at": "2026-05-22T14:30:00-04:00",
   "duration_minutes": 47.3,
   "speakers": ["Garrett", "John Smith"],
   "source_file_id": "rec_abc123",
-  "transcript_excerpt": "...first 500 chars (for audit trail)...",
-  "action_items": [...],
-  "decisions": [...],
-  "open_questions": [...],
-  "notable_quotes": [...]
+  "plaud_note_markdown": "## Summary\n\nReviewed Q3 forecast scenarios...\n\n## Action Items\n\n- John to circulate updated deck by Friday\n- Garrett to confirm Q4 commit numbers Monday\n\n## Key Points\n\n..."
 }
 ```
+
+The `plaud_note_markdown` field is the verbatim markdown response from Plaud's `get_note()` MCP call. docx_writer.py detects this field and renders it 1:1 below the title block — preserving Plaud's section structure (Summary, Action Items, Key Points, etc.) without paraphrasing.
+
+The structured fields (`action_items`, `decisions`, `open_questions`, `notable_quotes`, `recap`) are **no longer required** in v2.3.0+ for per-meeting documents. The writer will accept them if present (for backward compatibility) but will prefer `plaud_note_markdown` if it exists.
 
 Write it to a tempfile, then invoke:
 
@@ -329,8 +290,8 @@ Do NOT paste the full digest into the chat — it belongs in the Word docs.
 
 ## Anti-patterns
 
-- **Do not trust Plaud's `get_note`** — re-extract from the transcript.
-- **Do not invent action items** — if the transcript doesn't support a commitment, leave it out.
+- **DO use Plaud's `get_note` verbatim** (v2.3.0+) — Plaud's summary is the source of truth; pass it through unchanged. Do NOT re-paraphrase or split it into your own fields.
+- **Do not invent action items** — Plaud's `get_note` already lists them; pass through what's there, do not add or subtract.
 - **Do not skip routing** — every recording goes to a folder, even if it's `Uncategorized`. Surface uncategorized counts in the report so the operator notices when the client forgets to say the meeting type.
 - **Do not split a single recording across folders** — meeting type is determined ONCE per recording from the opening line; pick first match and apply consistently.
 - **Do not write the .docx before extraction completes** — if extraction fails, no partial .docx should land.
