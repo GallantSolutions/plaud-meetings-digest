@@ -2,19 +2,21 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorActi
 iwr -useb https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.ps1 | iex
 
 
-Write-Host "--- claude ---"
-claude --version 2>&1
-Write-Host "--- python ---"
-python --version 2>&1
-Write-Host "--- node ---"
-node -v 2>&1
-Write-Host "--- bundle cache ---"
-Test-Path "$env:LOCALAPPDATA\plaud-meetings-digest"
-Get-ChildItem "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorAction SilentlyContinue | Select-Object Name, LastWriteTime
-Write-Host "--- bundle version ---"
-Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\version.txt" -ErrorAction SilentlyContinue
-Write-Host "--- scheduled tasks ---"
-Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_*' -ErrorAction SilentlyContinue | Select-Object TaskName, State
-Write-Host "--- skill install ---"
-Test-Path "$HOME\.claude\skills\meetings-digest\SKILL.md"
-| Set-Clipboard
+$claudeExe = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Filter "claude.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($claudeExe) {
+    $claudeDir = $claudeExe.Directory.FullName
+    Write-Host "Found claude at: $claudeDir"
+    $env:Path = "$claudeDir;$env:Path"
+    $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    if ($userPath -notlike "*$claudeDir*") {
+        [System.Environment]::SetEnvironmentVariable("Path", "$claudeDir;$userPath", "User")
+        Write-Host "Added to user PATH permanently."
+    } else {
+        Write-Host "Already in user PATH."
+    }
+    Write-Host "--- claude --version ---"
+    claude --version
+} else {
+    Write-Host "claude.exe NOT found in Packages — need to reinstall Claude Code."
+}
+
