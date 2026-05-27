@@ -1,0 +1,5 @@
+Write-Host "py launcher:" -NoNewline; py --version 2>&1
+Write-Host "User-local Python:"; Test-Path "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe"
+Write-Host "Program Files Python:"; Test-Path "C:\Program Files\Python311\python.exe"
+Write-Host "Program Files (x86):"; Test-Path "C:\Program Files (x86)\Python311\python.exe"
+Get-ChildItem -Path C:\ -Filter python.exe -Recurse -ErrorAction SilentlyContinue -Depth 4 | Select-Object -First 5 -ExpandProperty FullName
