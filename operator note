@@ -75,3 +75,7 @@ After the BOM fix, the runner will load config and try to actually fetch Plaud m
 
 python -c "import json; from pathlib import Path; p = Path.home() / '.claude' / 'skills' / 'meetings-digest' / 'config.json'; c = json.loads(p.read_text()); print('OK — version:', c['version'])"
 
+
+
+
+python -c "import json; from pathlib import Path; p = Path.home() / '.claude' / 'skills' / 'meetings-digest' / 'config.json'; c = json.loads(p.read_text()); print('OK — version:', c['version'])"
