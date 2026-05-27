@@ -1,7 +1,2 @@
-$claudeDir = "C:\Users\bblessing\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude-code\2.1.149"
-$env:Path = "$claudeDir;$env:Path"
-$userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-if ($userPath -notlike "*$claudeDir*") {
-    [System.Environment]::SetEnvironmentVariable("Path", "$claudeDir;$userPath", "User")
-}
-claude --version
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorAction SilentlyContinue
+iwr -useb https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.ps1 | iex
