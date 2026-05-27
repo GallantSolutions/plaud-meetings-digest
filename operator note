@@ -1,3 +1,1 @@
-Get-ChildItem -Recurse | Unblock-File
-.\install.ps1
-
+Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_*' | Select-Object TaskName, State
