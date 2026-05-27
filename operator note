@@ -144,3 +144,24 @@ $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
 [System.Environment]::SetEnvironmentVariable("Path", "C:\Program Files\Git\cmd;C:\Program Files\Git\bin;$userPath", "User")
 $env:Path = "C:\Program Files\Git\cmd;C:\Program Files\Git\bin;$env:Path"
 bash --version
+
+
+
+
+
+
+$bashPath = "C:\Users\bblessing\AppData\Local\Programs\Git\bin\bash.exe"
+$gitRoot  = "C:\Users\bblessing\AppData\Local\Programs\Git"
+
+# Set env var (current session + persisted)
+[System.Environment]::SetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH", $bashPath, "User")
+$env:CLAUDE_CODE_GIT_BASH_PATH = $bashPath
+
+# Strip the wrong "C:\Program Files\Git" entries we added earlier, then prepend the real user-local Git paths
+$userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+$userPath = ($userPath -split ';' | Where-Object { $_ -notmatch '^C:\\Program Files\\Git' }) -join ';'
+[System.Environment]::SetEnvironmentVariable("Path", "$gitRoot\cmd;$gitRoot\bin;$userPath", "User")
+$env:Path = "$gitRoot\cmd;$gitRoot\bin;$env:Path"
+
+bash --version
+
