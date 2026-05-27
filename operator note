@@ -4,3 +4,10 @@ Get-ChildItem "$env:LOCALAPPDATA\plaud-meetings-digest\logs" | Sort-Object LastW
 
 
 Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\logs\plaud-meetings-digest.log" -Tail 80
+
+
+$cfg = "$HOME\.claude\skills\meetings-digest\config.json"
+Write-Host "Exists: $(Test-Path $cfg)"
+Write-Host "Size: $((Get-Item $cfg -ErrorAction SilentlyContinue).Length) bytes"
+Write-Host "--- contents ---"
+Get-Content $cfg -Raw -ErrorAction SilentlyContinue
