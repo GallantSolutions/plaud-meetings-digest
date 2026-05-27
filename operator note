@@ -30,3 +30,6 @@ Get-ChildItem "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\digest-ru
 
 
 python -c "from pathlib import Path; p = Path.home() / '.claude' / 'skills' / 'meetings-digest' / 'config.json'; print('Path:', p); print('Exists:', p.exists()); print('Size:', p.stat().st_size if p.exists() else 'N/A'); txt = p.read_text() if p.exists() else ''; print('Length read:', len(txt)); print('First 100 chars:', repr(txt[:100]))"
+
+
+npx -y @plaud-ai/mcp@latest login
