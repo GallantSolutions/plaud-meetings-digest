@@ -109,3 +109,7 @@ claude mcp list
 
 
 Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\logs\plaud-meetings-digest.log" -Tail 100
+
+
+winget install -e --id Git.Git --silent --accept-package-agreements --accept-source-agreements
+
