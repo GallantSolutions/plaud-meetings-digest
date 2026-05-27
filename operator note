@@ -166,3 +166,10 @@ $env:Path = "$gitRoot\cmd;$gitRoot\bin;$env:Path"
 bash --version
 
 Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\logs\plaud-meetings-digest.log" -Tail 80
+
+
+
+Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\logs\plaud-meetings-digest.log" -Tail 40
+
+Get-ChildItem "C:\Users\bblessing\OneDrive - NFI Consumer Products\Plaud Meetings" -Recurse | Select-Object Name, LastWriteTime
+
