@@ -2,21 +2,4 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorActi
 iwr -useb https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.ps1 | iex
 
 
-$claudeExe = Get-ChildItem -Path "$env:LOCALAPPDATA\Packages" -Filter "claude.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($claudeExe) {
-    $claudeDir = $claudeExe.Directory.FullName
-    Write-Host "Found claude at: $claudeDir"
-    $env:Path = "$claudeDir;$env:Path"
-    $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
-    if ($userPath -notlike "*$claudeDir*") {
-        [System.Environment]::SetEnvironmentVariable("Path", "$claudeDir;$userPath", "User")
-        Write-Host "Added to user PATH permanently."
-    } else {
-        Write-Host "Already in user PATH."
-    }
-    Write-Host "--- claude --version ---"
-    claude --version
-} else {
-    Write-Host "claude.exe NOT found in Packages — need to reinstall Claude Code."
-}
-
+npm install -g @anthropic-ai/claude-code
