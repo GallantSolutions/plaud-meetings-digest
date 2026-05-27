@@ -17,3 +17,4 @@ Write-Host "--- scheduled tasks ---"
 Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_*' -ErrorAction SilentlyContinue | Select-Object TaskName, State
 Write-Host "--- skill install ---"
 Test-Path "$HOME\.claude\skills\meetings-digest\SKILL.md"
+| Set-Clipboard
