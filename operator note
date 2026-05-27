@@ -11,3 +11,19 @@ Write-Host "Exists: $(Test-Path $cfg)"
 Write-Host "Size: $((Get-Item $cfg -ErrorAction SilentlyContinue).Length) bytes"
 Write-Host "--- contents ---"
 Get-Content $cfg -Raw -ErrorAction SilentlyContinue
+
+
+
+
+Write-Host "--- PowerShell `$HOME ---"
+$HOME
+Write-Host "--- USERPROFILE env ---"
+$env:USERPROFILE
+Write-Host "--- python expanduser ---"
+python -c "import os; print('Home expanded:', os.path.expanduser('~'))"
+Write-Host "--- config at H:\ ---"
+Test-Path "H:\.claude\skills\meetings-digest\config.json"
+Write-Host "--- config at USERPROFILE ---"
+Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
+Write-Host "--- digest-runner location ---"
+Get-ChildItem "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\digest-runner.py","H:\.claude\skills\meetings-digest\scripts\digest-runner.py" -ErrorAction SilentlyContinue | Select-Object FullName, Length
