@@ -70,3 +70,8 @@ The --help output from Plaud MCP
 After the BOM fix, the runner will load config and try to actually fetch Plaud meetings. If Plaud MCP isn't OAuth'd, it'll fail with a different error pointing us at the OAuth issue.
 
 (I'll fold the BOM-safe config load into v2.2.7 — proper fix is encoding='utf-8-sig' in digest-runner.py.)
+
+
+
+python -c "import json; from pathlib import Path; p = Path.home() / '.claude' / 'skills' / 'meetings-digest' / 'config.json'; c = json.loads(p.read_text()); print('OK — version:', c['version'])"
+
