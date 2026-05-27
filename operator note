@@ -113,3 +113,6 @@ Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\logs\plaud-meetings-digest.
 
 winget install -e --id Git.Git --silent --accept-package-agreements --accept-source-agreements
 
+
+
+Get-ChildItem -Path "C:\Program Files\Git","C:\Program Files (x86)\Git","$env:LOCALAPPDATA\Programs\Git" -Filter "bash.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
