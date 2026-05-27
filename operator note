@@ -104,3 +104,8 @@ $jsonOut = $json | ConvertTo-Json -Depth 10
 [System.IO.File]::WriteAllText($cfgPath, $jsonOut, [System.Text.UTF8Encoding]::new($false))
 Write-Host "--- saved. verifying ---"
 claude mcp list
+
+
+
+
+Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\logs\plaud-meetings-digest.log" -Tail 100
