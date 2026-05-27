@@ -1,2 +1,19 @@
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorAction SilentlyContinue
 iwr -useb https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.ps1 | iex
+
+
+Write-Host "--- claude ---"
+claude --version 2>&1
+Write-Host "--- python ---"
+python --version 2>&1
+Write-Host "--- node ---"
+node -v 2>&1
+Write-Host "--- bundle cache ---"
+Test-Path "$env:LOCALAPPDATA\plaud-meetings-digest"
+Get-ChildItem "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorAction SilentlyContinue | Select-Object Name, LastWriteTime
+Write-Host "--- bundle version ---"
+Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\version.txt" -ErrorAction SilentlyContinue
+Write-Host "--- scheduled tasks ---"
+Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_*' -ErrorAction SilentlyContinue | Select-Object TaskName, State
+Write-Host "--- skill install ---"
+Test-Path "$HOME\.claude\skills\meetings-digest\SKILL.md"
