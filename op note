@@ -1,8 +1,3 @@
-Remove-Item -Recurse -Force "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorAction SilentlyContinue
-iwr -useb https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-digest/main/bootstrap.ps1 | iex
+https://github.com/GallantSolutions/plaud-meetings-digest/archive/refs/tags/v2.2.6.zip
 
-
-npm install -g @anthropic-ai/claude-code
-
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
 
