@@ -1,1 +1,1 @@
-Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_*' | Select-Object TaskName, State
+Start-ScheduledTask -TaskName 'PlaudMeetingsDigest_Lunch'
