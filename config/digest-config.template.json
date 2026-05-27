@@ -1,5 +1,5 @@
 {
-  "version": "2.2.5",
+  "version": "2.2.6",
   "installed_at": null,
   "platform": null,
   "gallant_heartbeat": {
@@ -40,20 +40,28 @@
         "include_in_weekly_rollup": true
       },
       {
+        "keyword": "Committee",
+        "folder": "Committee",
+        "filename_prefix": "CMM",
+        "rollup_filename_prefix": "CMR",
+        "weekly_subfolders": true,
+        "include_in_weekly_rollup": true
+      },
+      {
         "keyword": "Church",
         "folder": "Church",
         "filename_prefix": "CHM",
-        "rollup_filename_prefix": null,
-        "weekly_subfolders": false,
-        "include_in_weekly_rollup": false
+        "rollup_filename_prefix": "CHR",
+        "weekly_subfolders": true,
+        "include_in_weekly_rollup": true
       },
       {
         "keyword": "Personal",
         "folder": "Personal",
         "filename_prefix": "PM",
-        "rollup_filename_prefix": null,
-        "weekly_subfolders": false,
-        "include_in_weekly_rollup": false
+        "rollup_filename_prefix": "PR",
+        "weekly_subfolders": true,
+        "include_in_weekly_rollup": true
       }
     ],
     "fallback_folder": "Uncategorized",
@@ -84,16 +92,16 @@
   },
   "schedule": {
     "lunch": {
-      "hour": 12,
-      "minute": 30
+      "hour": 11,
+      "minute": 0
     },
     "eod": {
-      "hour": 17,
+      "hour": 16,
       "minute": 0
     },
     "rollup": {
       "day_of_week": 5,
-      "hour": 17,
+      "hour": 16,
       "minute": 30
     }
   }

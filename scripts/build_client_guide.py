@@ -406,7 +406,7 @@ def _add_read_first(doc) -> None:
 
     _subsection(doc, "Three habits.  That is the complete user-side checklist.")
     _numbered(doc, 1, [
-        ("At the start of every recording, say one of three keywords within the first ten seconds: ", False),
+        ("At the start of every recording, say one of four keywords within the first ten seconds: ", False),
         ("Kingsway Pharma", True), (", ", False),
         ("Church", True), (", or ", False), ("Personal", True),
         (".  Then name the people you are meeting with.  Then talk normally.", False),
@@ -442,7 +442,7 @@ def _add_first_week(doc) -> None:
     _body(doc, "Speak naturally for the rest of the meeting.  Within a few hours, open OneDrive and navigate to Plaud Meetings / Kingsway Pharma.  You will see a week folder named for the current work week (e.g., KPM.May 25-29, 2026 (Week 22)/).  Inside it: a Word document named after the topic and attendees you spoke.  Open it.  Read it.  This confirms the routing works for you.")
 
     _subsection(doc, "Day 2 — Record a Church or Personal note")
-    _body(doc, "Press record.  Say “Personal note, [topic]” or “Church reflection on [topic].”  Verify the file appears in Plaud Meetings / Personal or Plaud Meetings / Church.  You now have direct evidence that the three keywords route to three different folders.")
+    _body(doc, "Press record.  Say “Personal note, [topic]” or “Church reflection on [topic].”  Verify the file appears in Plaud Meetings / Personal or Plaud Meetings / Church.  You now have direct evidence that the four keywords route to four different folders.")
 
     _subsection(doc, "Day 3 to Friday — Use the system normally")
     _body(doc, "Record meetings as they happen.  Keep the keyword-first habit.  Lock your screen at end of day rather than signing out.")
@@ -469,15 +469,15 @@ def _add_pipeline(doc) -> None:
     _table(doc,
         ["When", "What happens"],
         [
-            ["12:30 PM each weekday", "Pulls all morning recordings, generates documents, files into OneDrive"],
-            ["5:00 PM each weekday", "Pulls all afternoon recordings, generates documents, files into OneDrive"],
-            ["5:30 PM each Friday", "Synthesizes the Kingsway Pharma weekly rollup"],
+            ["11:00 AM each weekday", "Pulls all morning recordings, generates documents, files into OneDrive"],
+            ["4:00 PM each weekday", "Pulls all afternoon recordings, generates documents, files into OneDrive"],
+            ["4:30 PM each Friday", "Synthesizes the weekly rollup across all meeting types"],
             ["3:00 AM each night", "Checks for system updates; installs silently if available"],
         ],
         col_widths_in=[2.0, 4.5],
     )
 
-    _body(doc, "A recording made at 11:00 AM appears after 12:30 PM.  A recording made at 4:00 PM appears after 5:00 PM.  A recording made over the weekend lands the following Monday at 12:30 PM.")
+    _body(doc, "A recording made at 9:00 AM appears after 11:00 AM.  A recording made at 3:00 PM appears after 4:00 PM.  A recording made over the weekend lands the following Monday at 11:00 AM.")
 
     _subsection(doc, "The pipeline, in plain terms:")
     _numbered(doc, 1, [("You press record on Plaud and speak.  The first ten seconds determine routing.", False)])
@@ -655,7 +655,7 @@ def _add_troubleshooting(doc) -> None:
     _body(doc, "Occasional misses are normal.  If it begins happening regularly, contact support and we will review the keyword set with you.")
 
     _subsection(doc, "A meeting did not appear at all")
-    _body(doc, "Wait until after the next scheduled run (12:30 PM or 5:00 PM that day).  The system catches up on whatever Plaud has.  A recording made at 11:00 AM will appear after 12:30 PM; a recording made at 4:00 PM will appear after 5:00 PM.")
+    _body(doc, "Wait until after the next scheduled run (11:00 AM or 4:00 PM that day).  The system catches up on whatever Plaud has.  A recording made at 9:00 AM will appear after 11:00 AM; a recording made at 3:00 PM will appear after 4:00 PM.")
     _body(doc, "If it still has not appeared by the next morning, email hello@gallant.solutions.  Do not attempt to fix it yourself.")
 
     _subsection(doc, "The Friday rollup is empty")
@@ -721,7 +721,7 @@ def _add_service(doc) -> None:
     _numbered(doc, 3, [("On-site, if ever needed.  ", True), ("We have engineered the system so this is extremely unlikely.  If your situation truly requires it, we will travel.", False)])
 
     _subsection(doc, "Hours")
-    _body(doc, "Standard support is Monday through Friday, 9 AM to 6 PM Eastern.  Outside those hours, our system continues to monitor itself; human response resumes at the start of the next business day.  If a recording is missed because the system was offline overnight, the next morning's 12:30 PM run will catch it up automatically.")
+    _body(doc, "Standard support is Monday through Friday, 9 AM to 6 PM Eastern.  Outside those hours, our system continues to monitor itself; human response resumes at the start of the next business day.  If a recording is missed because the system was offline overnight, the next morning's 11:00 AM run will catch it up automatically.")
 
     _page_break(doc)
 
@@ -753,7 +753,7 @@ def _add_reference_card(doc) -> None:
     first_p = cell.paragraphs[0]
     first_p._element.getparent().remove(first_p._element)
 
-    _card_line("RECORD", "Within the first ten seconds, say Kingsway Pharma, Church, or Personal.  Then name the people present.  Then talk normally.")
+    _card_line("RECORD", "Within the first ten seconds, say Kingsway Pharma, Committee, Church, or Personal.  Then name the people present.  Then talk normally.")
     _card_line("END OF DAY", "Lock the screen with Windows key + L.  Do not sign out.")
     _card_line("FIND YOUR MEETINGS", "OneDrive  →  Plaud Meetings  →  folder matching your keyword.  Kingsway Pharma meetings are bucketed by work week, e.g., KPM.May 25-29, 2026 (Week 22)/.")
     _card_line("READ THE FRIDAY ROLLUP", "Same week folder.  The file begins with KPR. rather than KPM.  Best read Saturday morning.")
@@ -813,13 +813,13 @@ def _add_glossary(doc) -> None:
         ("Done? column.", "The fifth column in the carry-over table.  A [ ] checkbox per row.  You change [ ] to [x] to tell the system that the item is finished.  Closures are read by next Friday's rollup and applied automatically.  This is the system's single closure surface — used for items that completed in any context, recorded or not."),
         ("Critical / Attention / Open.", "Aging labels applied to carry-overs in the weekly rollup.  CRITICAL means an item has been open 21 or more days; ATTENTION means 14 or more days; OPEN means fewer than 14 days."),
         ("ISO week.", "A standardized calendar week, Monday through Sunday, used throughout the system.  Week numbers reset each year.  Week 22 of 2026 runs Monday May 25 through Sunday May 31."),
-        ("Keyword.", "The routing word spoken in the first ten seconds of a recording.  The three configured keywords are Kingsway Pharma, Church, and Personal."),
+        ("Keyword.", "The routing word spoken in the first ten seconds of a recording.  The four configured keywords are Kingsway Pharma, Committee, Church, and Personal."),
         ("KPM / KPR / CHM / PM / UN.", "Filename prefixes that identify the file type at a glance.  KPM = Kingsway Pharma Meeting.  KPR = Kingsway Pharma Rollup.  CHM = Church Meeting.  PM = Personal Meeting.  UN = Uncategorized."),
         ("Lock screen.", "The screen that appears when you press Windows key + L.  The computer remains signed in and continues running scheduled tasks; the screen is simply protected from view."),
         ("OneDrive.", "The Microsoft cloud storage service where all generated documents are filed.  The system writes to a folder called Plaud Meetings at the root of your OneDrive."),
         ("Plaud.", "The recording device.  The source of truth for raw audio.  Recordings are transcribed by Plaud's service and retrieved by our system at the next scheduled run."),
         ("Rollup.", "The Friday weekly summary document.  One per Kingsway Pharma work week, filed into the same week folder as the meetings it summarizes."),
-        ("Scheduled run.", "A point in time when the system retrieves new recordings, generates documents, and files them into OneDrive.  The four scheduled runs each weekday are 12:30 PM, 5:00 PM, 5:30 PM (Friday rollup only), and 3:00 AM (system update check)."),
+        ("Scheduled run.", "A point in time when the system retrieves new recordings, generates documents, and files them into OneDrive.  The four scheduled runs each weekday are 11:00 AM, 4:00 PM, 4:30 PM (Friday rollup only), and 3:00 AM (system update check)."),
         ("Self-healing.", "The system's ability to automatically restore the previous working version when a fresh update causes a failure.  Performed without human intervention; an alert is sent to the Gallant team within roughly an hour."),
         ("Work week.", "Monday through Friday.  Used for bucketing Kingsway Pharma meetings into week folders.  Recordings made on Saturday or Sunday land in the following Monday's batch and are filed into the work week they belong to."),
     ]

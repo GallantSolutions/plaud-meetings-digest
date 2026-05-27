@@ -3,9 +3,9 @@
 # schedule.sh — Mac launchd installer (v2.2.0)
 #
 # Installs FOUR jobs:
-#   - Daily 12:30 PM     → /meetings-digest (lunch pull)
-#   - Daily  5:00 PM     → /meetings-digest (EOD pull)
-#   - Friday 5:30 PM     → /weekly-rollup   (Kingsway Pharma rollup)
+#   - Daily 11:00 AM     → /meetings-digest (lunch pull)
+#   - Daily  4:00 PM     → /meetings-digest (EOD pull)
+#   - Friday 4:30 PM     → /weekly-rollup   (rollup across all rollup-enabled buckets)
 #   - Daily  3:00 AM     → auto-update      (pulls latest GitHub release)
 #
 # Every job is wrapped in run-with-heartbeat.sh — pings Healthchecks.io
@@ -192,15 +192,15 @@ weekly_calendar() {
 
 # ---- Write all four plists -----------------------------------------------
 write_plist "$LABEL_LUNCH"  "$PLIST_LUNCH"  "$CHECK_LUNCH" \
-  "$(daily_calendar 12 30)" \
+  "$(daily_calendar 11 0)" \
   "$PYTHON_BIN" "$RUNNER" "--skill" "meetings-digest" "--source" "lunch"
 
 write_plist "$LABEL_EOD"    "$PLIST_EOD"    "$CHECK_EOD" \
-  "$(daily_calendar 17 0)" \
+  "$(daily_calendar 16 0)" \
   "$PYTHON_BIN" "$RUNNER" "--skill" "meetings-digest" "--source" "eod"
 
 write_plist "$LABEL_ROLLUP" "$PLIST_ROLLUP" "$CHECK_ROLLUP" \
-  "$(weekly_calendar 5 17 30)" \
+  "$(weekly_calendar 5 16 30)" \
   "$PYTHON_BIN" "$RUNNER" "--skill" "weekly-rollup" "--source" "rollup"
 
 if [[ -f "$AUTO_UPDATE_SCRIPT" ]]; then
@@ -215,9 +215,9 @@ launchctl load "$PLIST_ROLLUP"
 if [[ -f "$PLIST_UPDATE" ]]; then launchctl load "$PLIST_UPDATE"; fi
 
 ok "Schedule installed (4 jobs)"
-printf "  Lunch:        12:30 PM daily   (label %s)\n" "$LABEL_LUNCH"
-printf "  EOD:           5:00 PM daily   (label %s)\n" "$LABEL_EOD"
-printf "  Rollup:        5:30 PM Friday  (label %s)\n" "$LABEL_ROLLUP"
+printf "  Lunch:        11:00 AM daily   (label %s)\n" "$LABEL_LUNCH"
+printf "  EOD:           4:00 PM daily   (label %s)\n" "$LABEL_EOD"
+printf "  Rollup:        4:30 PM Friday  (label %s)\n" "$LABEL_ROLLUP"
 if [[ -f "$PLIST_UPDATE" ]]; then
   printf "  Auto-update:   3:00 AM daily   (label %s)\n" "$LABEL_UPDATE"
 else

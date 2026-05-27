@@ -4,7 +4,7 @@
 # ============================================================================
 # Installs the meetings-digest + weekly-rollup skills into Claude Code, wires
 # up the Plaud MCP server, configures the output destination (folder or Notion),
-# and optionally schedules the Friday 5:00 PM weekly rollup.
+# and optionally schedules the Friday 4:30 PM weekly rollup.
 #
 # Usage:   ./install.sh
 # Fail-soft on missing prereqs (prints install commands, exits).
@@ -254,8 +254,9 @@ printf "(e.g., 'Kingsway Pharma meeting with John Smith'). The skill matches the
 printf "spoken opening line against keywords to route to the right folder/group.\n\n"
 printf "Default meeting types:\n"
 printf "  • Kingsway Pharma   → folder 'Kingsway Pharma'   → 'KPM' (meetings) + 'KPR' (rollup)  → per-week subfolders → INCLUDED in Friday rollup\n"
-printf "  • Church            → folder 'Church'            → 'CHM' (meetings)                   → flat layout         → excluded from rollup\n"
-printf "  • Personal          → folder 'Personal'          → 'PM' (meetings)                    → flat layout         → excluded from rollup\n\n"
+printf "  • Committee         → folder 'Committee'         → 'CMM' (meetings) + 'CMR' (rollup)  → per-week subfolders → INCLUDED in Friday rollup\n"
+printf "  • Church            → folder 'Church'            → 'CHM' (meetings) + 'CHR' (rollup)  → per-week subfolders → INCLUDED in Friday rollup\n"
+printf "  • Personal          → folder 'Personal'          → 'PM'  (meetings) + 'PR'  (rollup)  → per-week subfolders → INCLUDED in Friday rollup\n\n"
 printf "  Files land as: {prefix}.{short topic} ({attendees}).docx\n"
 printf "    e.g. Kingsway Pharma/KPM.May 25-29, 2026 (Week 22)/KPM.Q3 Plans (John Smith).docx\n"
 printf "    rollup: Kingsway Pharma/KPM.May 25-29, 2026 (Week 22)/KPR.May 25-29, 2026 (Week 22).docx\n\n"
@@ -263,9 +264,10 @@ read -p "Use these defaults? [Y/n]: " ROUTING_CHOICE
 ROUTING_CHOICE="${ROUTING_CHOICE:-Y}"
 
 ROUTING_JSON='[
-  { "keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "filename_prefix": "KPM", "rollup_filename_prefix": "KPR", "weekly_subfolders": true,  "include_in_weekly_rollup": true  },
-  { "keyword": "Church",          "folder": "Church",          "filename_prefix": "CHM", "rollup_filename_prefix": null,  "weekly_subfolders": false, "include_in_weekly_rollup": false },
-  { "keyword": "Personal",        "folder": "Personal",        "filename_prefix": "PM",  "rollup_filename_prefix": null,  "weekly_subfolders": false, "include_in_weekly_rollup": false }
+  { "keyword": "Kingsway Pharma", "folder": "Kingsway Pharma", "filename_prefix": "KPM", "rollup_filename_prefix": "KPR", "weekly_subfolders": true, "include_in_weekly_rollup": true },
+  { "keyword": "Committee",       "folder": "Committee",       "filename_prefix": "CMM", "rollup_filename_prefix": "CMR", "weekly_subfolders": true, "include_in_weekly_rollup": true },
+  { "keyword": "Church",          "folder": "Church",          "filename_prefix": "CHM", "rollup_filename_prefix": "CHR", "weekly_subfolders": true, "include_in_weekly_rollup": true },
+  { "keyword": "Personal",        "folder": "Personal",        "filename_prefix": "PM",  "rollup_filename_prefix": "PR",  "weekly_subfolders": true, "include_in_weekly_rollup": true }
 ]'
 
 if [[ "$ROUTING_CHOICE" =~ ^[Nn]$ ]]; then
@@ -324,9 +326,9 @@ if [[ -z "$ENV_PROVIDED" ]]; then
   if [[ "$HB_ENABLE" =~ ^[Yy]$ ]]; then
     read -p "Ping base URL [default https://hc-ping.com]: " HB_BASE_IN
     if [[ -n "$HB_BASE_IN" ]]; then HEARTBEAT_BASE="$HB_BASE_IN"; fi
-    read -p "Check UUID for daily 12:30 PM (lunch): " CHECK_LUNCH
-    read -p "Check UUID for daily 5:00 PM (eod): " CHECK_EOD
-    read -p "Check UUID for Friday 5:30 PM (rollup): " CHECK_ROLLUP
+    read -p "Check UUID for daily 11:00 AM (lunch): " CHECK_LUNCH
+    read -p "Check UUID for daily 4:00 PM (eod): " CHECK_EOD
+    read -p "Check UUID for Friday 4:30 PM (rollup): " CHECK_ROLLUP
     read -p "Check UUID for daily 3:00 AM (auto-update): " CHECK_AUTO_UPDATE
   fi
 fi
@@ -400,9 +402,9 @@ printf "\n"
 say "Step 7/7 — Schedule three jobs"
 printf "\n"
 printf "This will install three launchd jobs:\n"
-printf "  • Daily 12:30 PM — lunch meetings pull\n"
-printf "  • Daily  5:00 PM — afternoon meetings pull\n"
-printf "  • Friday 5:30 PM — weekly rollup (Kingsway Pharma only)\n\n"
+printf "  • Daily 11:00 AM — lunch meetings pull\n"
+printf "  • Daily  4:00 PM — afternoon meetings pull\n"
+printf "  • Friday 4:30 PM — weekly rollup (Kingsway Pharma + Committee)\n\n"
 read -p "Enable schedule? [Y/n]: " SCHEDULE_CHOICE
 SCHEDULE_CHOICE="${SCHEDULE_CHOICE:-Y}"
 
@@ -429,7 +431,7 @@ printf "%bWhat's next:%b\n\n" "$BOLD" "$NC"
 printf "  • Test it now:    %bclaude -p \"/meetings-digest\"%b\n" "$BOLD" "$NC"
 printf "  • Interactive:    %bclaude%b → then type %b/meetings-digest%b\n" "$BOLD" "$NC" "$BOLD" "$NC"
 if [[ "$SCHEDULE_CHOICE" =~ ^[Yy]$ ]]; then
-  printf "  • Scheduled:      Lunch 12:30 PM, EOD 5:00 PM daily; Friday 5:30 PM rollup.\n"
+  printf "  • Scheduled:      Lunch 11:00 AM, EOD 4:00 PM daily; Friday 4:30 PM rollup.\n"
   printf "                    Logs: ~/Library/Logs/plaud-meetings-digest.log\n"
 fi
 printf "\n%bTrain the client:%b tell them to ALWAYS state the meeting type at the start of every Plaud recording\n" "$BOLD" "$NC"

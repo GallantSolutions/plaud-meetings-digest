@@ -9,11 +9,11 @@ This skill produces the **weekly rollup** the user opens Friday evening to plan 
 
 It does NOT pull from Plaud directly — that's [[meetings-digest]]'s job (twice daily). This skill reads the local JSONL state file populated by `meetings-digest` and synthesizes a focused rollup.
 
-**Critical scope filter:** only meeting types where `include_in_weekly_rollup: true` are pulled in. For this client's default config, that means **Kingsway Pharma only**. Church and Personal meetings stay in their respective folders/properties but never roll up — that's intentional, per the client's request.
+**Critical scope filter:** only meeting types where `include_in_weekly_rollup: true` are pulled in. For Kingsway's current config, that means **all four buckets roll up** (Kingsway Pharma → KPR, Committee → CMR, Church → CHR, Personal → PR). Each rollup-enabled bucket gets its own `.docx` per week.
 
 ## Operating mode
 
-Runs **Friday at 5:30 PM** local time, scheduled 30 minutes after the Friday 5:00 PM `meetings-digest` run so the latest day's items are guaranteed in the JSONL before synthesis. Also invokable manually.
+Runs **Friday at 4:30 PM** local time, scheduled 30 minutes after the Friday 4:00 PM `meetings-digest` run so the latest day's items are guaranteed in the JSONL before synthesis. Also invokable manually.
 
 ## When this skill fires
 

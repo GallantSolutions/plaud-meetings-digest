@@ -1,9 +1,9 @@
 ﻿# ============================================================================
 # schedule.ps1 — Installs FOUR Windows Task Scheduler jobs (v2.2.0):
 #
-#   1. Daily 12:30 PM     → /meetings-digest (lunch pull)
-#   2. Daily  5:00 PM     → /meetings-digest (EOD pull)
-#   3. Friday 5:30 PM     → /weekly-rollup   (Kingsway Pharma rollup)
+#   1. Daily 11:00 AM     → /meetings-digest (lunch pull)
+#   2. Daily  4:00 PM     → /meetings-digest (EOD pull)
+#   3. Friday 4:30 PM     → /weekly-rollup   (rollup across all rollup-enabled buckets)
 #   4. Daily  3:00 AM     → auto-update      (pulls latest GitHub release)
 #
 # Every task is wrapped in run-with-heartbeat.ps1 — pings Healthchecks.io
@@ -153,9 +153,10 @@ foreach ($legacy in $LegacyTaskNames) {
 }
 
 # ---- Triggers --------------------------------------------------------------
-$lunchTrigger  = New-ScheduledTaskTrigger -Daily -At 12:30PM
-$eodTrigger    = New-ScheduledTaskTrigger -Daily -At 5:00PM
-$fridayTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Friday -At 5:30PM
+# Schedule matches digest-config.template.json (lunch 11:00, eod 16:00, rollup Fri 16:30).
+$lunchTrigger  = New-ScheduledTaskTrigger -Daily -At 11:00AM
+$eodTrigger    = New-ScheduledTaskTrigger -Daily -At 4:00PM
+$fridayTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Friday -At 4:30PM
 $updateTrigger = New-ScheduledTaskTrigger -Daily -At 3:00AM
 
 # ---- Actions (heartbeat-wrapped) -----------------------------------------
@@ -187,9 +188,9 @@ Register-DigestTask -TaskName 'PlaudMeetingsDigest_AutoUpdate' -Description 'Pla
 
 Write-Host ""
 Write-Ok "Four Task Scheduler jobs installed."
-Write-Host "  Lunch:       Daily 12:30 PM    (PlaudMeetingsDigest_Lunch)"
-Write-Host "  EOD:         Daily  5:00 PM    (PlaudMeetingsDigest_EOD)"
-Write-Host "  Rollup:      Friday 5:30 PM    (PlaudMeetingsDigest_Rollup)"
+Write-Host "  Lunch:       Daily 11:00 AM    (PlaudMeetingsDigest_Lunch)"
+Write-Host "  EOD:         Daily  4:00 PM    (PlaudMeetingsDigest_EOD)"
+Write-Host "  Rollup:      Friday 4:30 PM    (PlaudMeetingsDigest_Rollup)"
 Write-Host "  Auto-update: Daily  3:00 AM    (PlaudMeetingsDigest_AutoUpdate)"
 Write-Host ""
 Write-Host "  Logs: $LogDir"

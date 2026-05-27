@@ -16,9 +16,9 @@ Same skill, same routing logic, same JSONL state file — only the WRITE step br
 
 ## Operating mode
 
-This skill runs **twice daily** by default — at 12:30 PM (lunch) and 5:00 PM (EOD) local time — plus any manual invocations. Dedup state at `~/.claude/skills/meetings-digest/state/processed-file-ids.json` ensures meetings aren't double-processed across runs.
+This skill runs **twice daily** by default — at 11:00 AM (lunch) and 4:00 PM (EOD) local time — plus any manual invocations. Dedup state at `~/.claude/skills/meetings-digest/state/processed-file-ids.json` ensures meetings aren't double-processed across runs.
 
-The Friday 5:00 PM run is chained: this skill fires first; the [[weekly-rollup]] skill fires at 5:30 PM (configured in `schedule.ps1` on Windows, `schedule.sh` on Mac) to synthesize the week's Kingsway Pharma items into a rollup `.docx`.
+The Friday 4:00 PM run is chained: this skill fires first; the [[weekly-rollup]] skill fires at 4:30 PM (configured in `schedule.ps1` on Windows, `schedule.sh` on Mac) to synthesize the week's rollup-flagged items into rollup `.docx` files.
 
 ## When this skill fires
 

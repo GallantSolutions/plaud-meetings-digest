@@ -11,13 +11,13 @@ Built by **Gallant**.
 
 ## What it does
 
-Every weekday at **12:30 PM** and **5:00 PM** local time, plus a synthesis run on **Friday at 5:30 PM**, it:
+Every weekday at **11:00 AM** and **4:00 PM** local time, plus a synthesis run on **Friday at 4:30 PM**, it:
 
 1. Pulls the latest Plaud recordings
-2. **Routes each one to a folder/tag based on the spoken opening line.** The client says "Kingsway Pharma meeting with John Smith" → it goes to the Kingsway Pharma folder. Says "Sunday morning church reflection" → goes to Church. Says "Personal note about the kids" → goes to Personal. No keyword detected → Uncategorized.
+2. **Routes each one to a folder/tag based on the spoken opening line.** The client says "Kingsway Pharma meeting with John Smith" → it goes to the Kingsway Pharma folder. Says "Committee call about compliance" → goes to Committee. Says "Sunday morning church reflection" → goes to Church. Says "Personal note about the kids" → goes to Personal. No keyword detected → Uncategorized.
 3. Extracts action items, decisions, open questions, key quotes from the transcript (NOT Plaud's built-in AI summary — re-extracted by Claude for quality)
 4. Writes the per-meeting output to the routed destination
-5. On Friday at 5:30 PM, synthesizes a **weekly rollup** for ONLY the meeting types flagged for rollup (default: Kingsway Pharma only — Church and Personal stay in their folders but don't roll up)
+5. On Friday at 4:30 PM, synthesizes a **weekly rollup** for every meeting type flagged for rollup. Kingsway's default config rolls up all four buckets (Kingsway Pharma → KPR, Committee → CMR, Church → CHR, Personal → PR), one rollup `.docx` per bucket.
 
 You stop hand-copying notes out of Plaud. Action items show up where you actually work, sorted by the meetings that matter for the rollup.
 
@@ -26,25 +26,27 @@ You stop hand-copying notes out of Plaud. Action items show up where you actuall
 **Always state the meeting type at the start of every Plaud recording.** Examples:
 
 - ✅ "Kingsway Pharma meeting with John Smith, we're going over Q3 plans"
+- ✅ "Committee call, compliance review of the EPT 3-count"
 - ✅ "Church reflection, this week's sermon was about…"
 - ✅ "Personal note, reminder to call the dentist"
 - ❌ "Hey, so I wanted to talk about…" (no keyword → routes to Uncategorized)
 
-The skill scans the first ~30 seconds for the keyword. Default keywords for this client: **Kingsway Pharma**, **Church**, **Personal**. Operator can customize the list at install time or by editing `~/.claude/skills/meetings-digest/config.json`.
+The skill scans the first ~30 seconds for the keyword. Default keywords for this client: **Kingsway Pharma**, **Committee**, **Church**, **Personal**. Operator can customize the list at install time or by editing `~/.claude/skills/meetings-digest/config.json`.
 
 ## How to use it (recipient)
 
 ### Automatic (you don't do anything)
 
-Three scheduled jobs run on their own:
+Four scheduled jobs run on their own:
 
-- **12:30 PM daily** — pull morning meetings
-- **5:00 PM daily** — pull afternoon meetings
-- **5:30 PM Friday** — synthesize the weekly rollup (Kingsway Pharma only)
+- **11:00 AM daily** — pull morning meetings
+- **4:00 PM daily** — pull afternoon meetings
+- **4:30 PM Friday** — synthesize the weekly rollup (one `.docx` per rollup-enabled bucket)
+- **3:00 AM daily** — check for + apply Gallant-published updates
 
 Outputs land in:
-- **Windows**: `<OneDrive>\Plaud Meetings\<meeting-type>\<per-week subfolder>\<prefix>.<short topic> (<attendees>).docx` (e.g. `Kingsway Pharma\KPM.May 25-29, 2026 (Week 22)\KPM.Q3 Plans (John Smith).docx`) — one `.docx` per meeting; action items rendered as ☐ checklist items. Meeting prefixes (`KPM` / `CHM` / `PM` / `UN`) carry a trailing `M` so the client can distinguish meeting files from anything else with the same 2-letter prefix in their OneDrive. The Friday rollup uses `KPR.` and lands in the same week folder as the week's meetings.
-- **Mac**: one row per meeting in your "Plaud Meetings" Notion database; the row's page body has the full recap with action items as interactive checkboxes you can tick off as you complete them. The Friday rollup lands as a separate page under the same parent page.
+- **Windows**: `<OneDrive>\Plaud Meetings\<meeting-type>\<per-week subfolder>\<prefix>.<short topic> (<attendees>).docx` (e.g. `Kingsway Pharma\KPM.May 25-29, 2026 (Week 22)\KPM.Q3 Plans (John Smith).docx`) — one `.docx` per meeting; action items rendered as ☐ checklist items. Meeting prefixes (`KPM` / `CMM` / `CHM` / `PM` / `UN`) carry a trailing `M` so the client can distinguish meeting files from anything else with the same 2-letter prefix in their OneDrive. Each Friday rollup uses the bucket's rollup prefix (`KPR` / `CMR` / `CHR` / `PR`) and lands in the same week folder as that bucket's meetings.
+- **Mac**: one row per meeting in your "Plaud Meetings" Notion database; the row's page body has the full recap with action items as interactive checkboxes you can tick off as you complete them. Each Friday rollup lands as a separate page under the same parent page.
 
 ### Manual
 
@@ -52,7 +54,8 @@ Outputs land in:
 2. Type `claude` → Enter
 3. Type one of:
    - `/meetings-digest` — pull and route new meetings now
-   - `/weekly-rollup` — synthesize the weekly rollup for Kingsway Pharma
+   - `/weekly-rollup` — synthesize a rollup for every bucket flagged for rollup
+   - `/weekly-rollup --meeting-type "Kingsway Pharma"` — restrict to one bucket
    - `/meetings-digest --days 14` — wider window
    - `/meetings-digest --force` — re-extract everything (ignores dedup)
 

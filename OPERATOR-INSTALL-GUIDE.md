@@ -86,9 +86,9 @@ Press Enter. The script:
    - Detects + installs missing prereqs via winget (Node 20, Python 3.11, Claude Code, python-docx)
    - Installs Plaud MCP + opens browser for OAuth (client clicks Authorize)
    - Detects OneDrive folder + creates `Plaud Meetings\` inside it
-   - Asks about meeting routing (accept defaults: Kingsway Pharma + Church + Personal)
+   - Asks about meeting routing (accept defaults: Kingsway Pharma + Committee + Church + Personal — all four roll up)
    - Installs both skills (meetings-digest + weekly-rollup) into Claude Code
-   - Installs three Windows Task Scheduler jobs (lunch 12:30 PM, EOD 5:00 PM daily, Friday rollup 5:30 PM)
+   - Installs four Windows Task Scheduler jobs (lunch 11:00 AM, EOD 4:00 PM daily, Friday rollup 4:30 PM, nightly 3:00 AM auto-update)
 
 ### Mac path
 
@@ -108,9 +108,9 @@ Press Enter. The script does the equivalent on Mac:
    - Detects + installs missing prereqs (xcode-select, Homebrew, Node 20, Claude Code, python-docx)
    - Installs Plaud MCP + opens browser for OAuth
    - Defaults destination to Notion: walks you through creating a Notion integration + parent page
-   - Asks about meeting routing (defaults: Kingsway Pharma + Church + Personal)
+   - Asks aboBut meeting routing (defaults: Kingsway Pharma + Committee + Church + Personal — all four roll up)
    - Installs both skills into Claude Code
-   - Installs three launchd jobs (lunch 12:30 PM, EOD 5:00 PM daily, Friday rollup 5:30 PM)
+   - Installs four launchd jobs (lunch 11:00 AM, EOD 4:00 PM daily, Friday rollup 4:30 PM, nightly 3:00 AM auto-update)
 
 ---
 
@@ -130,12 +130,13 @@ A browser tab opens at Plaud. **Client signs in and clicks Authorize.** Terminal
   4. Copy the page URL → paste it → the installer extracts the 32-char hex (the last segment of the URL)
 
 ### Meeting routing
-Accept defaults (**Y** when prompted). Defaults are:
-- `Kingsway Pharma` → folder `Kingsway Pharma` → **INCLUDED in weekly rollup**
-- `Church` → folder `Church` → excluded from rollup
-- `Personal` → folder `Personal` → excluded from rollup
+Accept defaults (**Y** when prompted). Defaults for Kingsway are:
+- `Kingsway Pharma` → folder `Kingsway Pharma` → meetings `KPM.*` + rollup `KPR.*` → **INCLUDED in weekly rollup**
+- `Committee` → folder `Committee` → meetings `CMM.*` + rollup `CMR.*` → **INCLUDED in weekly rollup**
+- `Church` → folder `Church` → meetings `CHM.*` + rollup `CHR.*` → **INCLUDED in weekly rollup**
+- `Personal` → folder `Personal` → meetings `PM.*` + rollup `PR.*` → **INCLUDED in weekly rollup**
 
-To customize later (e.g., add another meeting type): edit `~/.claude/skills/meetings-digest/config.json` and re-run the schedule script — no need to re-run the full install.
+All four buckets roll up per Ben's request (one `.docx` per bucket per week). To customize later (e.g., add another meeting type or turn off a bucket's rollup): edit `~/.claude/skills/meetings-digest/config.json` and re-run the schedule script — no need to re-run the full install.
 
 ### Heartbeat (Step 4b/5b — operator alerts when something breaks)
 
@@ -194,6 +195,7 @@ The single most important thing to convey:
 
 > **Always state the meeting type at the very start of each Plaud recording.** Examples that work:
 > - "Kingsway Pharma meeting with John Smith…"
+> - "Committee call about compliance…"
 > - "Sunday church reflection…"
 > - "Personal note about…"
 >
@@ -204,7 +206,7 @@ Then show them:
 1. **Where their outputs appear:**
    - Windows: OneDrive → Plaud Meetings → (the right meeting-type folder)
    - Mac: Notion → Plaud Meeting Action Items database + the parent page where weekly rollups appear
-2. **The Friday rollup:** "Every Friday at 5:30 PM, your Kingsway Pharma rollup lands automatically. Read it over the weekend, walk into Monday ready."
+2. **The Friday rollup:** "Every Friday at 4:30 PM, one rollup `.docx` lands per bucket (Kingsway Pharma, Committee, Church, Personal). Read them over the weekend, walk into Monday ready."
 3. **Manual trigger:** open Terminal/PowerShell → `claude` → `/meetings-digest` or `/weekly-rollup` for an immediate run.
 4. **If something seems off:** contact you.
 
@@ -240,9 +242,9 @@ Most common failure: client recorded a test meeting but didn't say the meeting t
 ## Handoff checklist
 
 - [ ] Test run produced output in the routed location
-- [ ] All three scheduled jobs verified
-   - Windows: `Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_*'` shows 3 rows
-   - Mac: `launchctl list | grep plaud-meetings-digest` shows 3 rows
+- [ ] All four scheduled jobs verified
+   - Windows: `Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_*'` shows 4 rows (Lunch, EOD, Rollup, AutoUpdate)
+   - Mac: `launchctl list | grep plaud-meetings-digest` shows 4 rows
 - [ ] Computer timezone confirmed = Eastern (or whatever client wants the schedule to fire in)
 - [ ] Client knows to state the meeting type at every recording's start
 - [ ] Client knows where outputs appear (folder bookmark / Notion bookmark)
@@ -260,7 +262,7 @@ Client didn't say the meeting type clearly at the start. Either:
 
 ### Friday rollup is empty
 
-Either no Kingsway Pharma meetings this week, OR the `meetings-digest` Friday 5:00 PM run failed before the 5:30 rollup. Check the log.
+Either no meetings landed in any rollup-enabled bucket this week, OR the `meetings-digest` Friday 4:00 PM run failed before the 4:30 PM rollup. Check the log.
 
 ### "claude command not found" (after install)
 

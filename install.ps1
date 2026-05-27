@@ -52,7 +52,7 @@ $ScriptsInstall       = Join-Path $SkillMeetingsInstall 'scripts'
 $ConfigInstall        = Join-Path $SkillMeetingsInstall 'config.json'
 $StateDir             = Join-Path $SkillMeetingsInstall 'state'
 
-Write-Header "Plaud Meetings Digest — Windows Installer (v2.2.5)"
+Write-Header "Plaud Meetings Digest — Windows Installer (v2.2.6)"
 
 # ============================================================================
 # Step 1 — Prerequisites
@@ -242,8 +242,9 @@ Write-Host "The skill matches the spoken opening line to the keywords below to r
 Write-Host ""
 Write-Host "Default meeting types for this client:"
 Write-Host "  • Kingsway Pharma   → folder 'Kingsway Pharma'   → 'KPM' (meetings) + 'KPR' (rollup)  → per-week subfolders → INCLUDED in Friday rollup"
-Write-Host "  • Church            → folder 'Church'            → 'CHM' (meetings)                   → flat layout         → excluded from rollup"
-Write-Host "  • Personal          → folder 'Personal'          → 'PM' (meetings)                    → flat layout         → excluded from rollup"
+Write-Host "  • Committee         → folder 'Committee'         → 'CMM' (meetings) + 'CMR' (rollup)  → per-week subfolders → INCLUDED in Friday rollup"
+Write-Host "  • Church            → folder 'Church'            → 'CHM' (meetings) + 'CHR' (rollup)  → per-week subfolders → INCLUDED in Friday rollup"
+Write-Host "  • Personal          → folder 'Personal'          → 'PM'  (meetings) + 'PR'  (rollup)  → per-week subfolders → INCLUDED in Friday rollup"
 Write-Host ""
 Write-Host "  Files land as: {prefix}.{short topic} ({attendees}).docx"
 Write-Host "    e.g. Kingsway Pharma\KPM.May 25-29, 2026 (Week 22)\KPM.Q3 Plans (John Smith).docx"
@@ -275,9 +276,10 @@ if ($customize -eq 'n') {
     }
 } else {
     $routing = @(
-        @{ keyword = "Kingsway Pharma"; folder = "Kingsway Pharma"; filename_prefix = "KPM"; rollup_filename_prefix = "KPR"; weekly_subfolders = $true;  include_in_weekly_rollup = $true  },
-        @{ keyword = "Church";          folder = "Church";          filename_prefix = "CHM"; rollup_filename_prefix = $null; weekly_subfolders = $false; include_in_weekly_rollup = $false },
-        @{ keyword = "Personal";        folder = "Personal";        filename_prefix = "PM";  rollup_filename_prefix = $null; weekly_subfolders = $false; include_in_weekly_rollup = $false }
+        @{ keyword = "Kingsway Pharma"; folder = "Kingsway Pharma"; filename_prefix = "KPM"; rollup_filename_prefix = "KPR"; weekly_subfolders = $true; include_in_weekly_rollup = $true },
+        @{ keyword = "Committee";       folder = "Committee";       filename_prefix = "CMM"; rollup_filename_prefix = "CMR"; weekly_subfolders = $true; include_in_weekly_rollup = $true },
+        @{ keyword = "Church";          folder = "Church";          filename_prefix = "CHM"; rollup_filename_prefix = "CHR"; weekly_subfolders = $true; include_in_weekly_rollup = $true },
+        @{ keyword = "Personal";        folder = "Personal";        filename_prefix = "PM";  rollup_filename_prefix = "PR";  weekly_subfolders = $true; include_in_weekly_rollup = $true }
     )
 }
 Write-Ok "Configured $($routing.Length) meeting type(s)"
@@ -314,9 +316,9 @@ if (-not $envProvided) {
     if (-not $enable -or $enable -ne 'n') {
         $baseInput = Read-Host "Ping base URL [default https://hc-ping.com]"
         if ($baseInput) { $heartbeatBase = $baseInput.Trim() }
-        $checkLunch      = Read-Host "Check UUID for daily 12:30 PM (lunch)"
-        $checkEod        = Read-Host "Check UUID for daily 5:00 PM (eod)"
-        $checkRollup     = Read-Host "Check UUID for Friday 5:30 PM (rollup)"
+        $checkLunch      = Read-Host "Check UUID for daily 11:00 AM (lunch)"
+        $checkEod        = Read-Host "Check UUID for daily 4:00 PM (eod)"
+        $checkRollup     = Read-Host "Check UUID for Friday 4:30 PM (rollup)"
         $checkAutoUpdate = Read-Host "Check UUID for daily 3:00 AM (auto-update)"
     }
 }
@@ -384,9 +386,9 @@ Write-Ok "Bundle version stamped: $bundleVersion -> $VersionFile"
 Write-Header "Step 6/6 — Schedule three jobs"
 
 Write-Host "This will install three Windows Task Scheduler jobs:"
-Write-Host "  • Daily 12:30 PM — lunch meetings pull"
-Write-Host "  • Daily  5:00 PM — afternoon meetings pull"
-Write-Host "  • Friday 5:30 PM — weekly rollup (Kingsway Pharma only)"
+Write-Host "  • Daily 11:00 AM — lunch meetings pull"
+Write-Host "  • Daily  4:00 PM — afternoon meetings pull"
+Write-Host "  • Friday 4:30 PM — weekly rollup (Kingsway Pharma + Committee)"
 Write-Host ""
 $schedule = Read-Host "Enable scheduled runs? [Y/n]"
 if ($schedule -ne 'n') {
@@ -402,7 +404,7 @@ if ($schedule -ne 'n') {
 Write-Header "✓ Installation complete"
 Write-Host "Next steps:" -ForegroundColor Cyan
 Write-Host "  • Test now:    claude -p `"/meetings-digest`""
-Write-Host "  • Scheduled:   Runs at 12:30 PM and 5:00 PM daily; Friday 5:30 PM rollup"
+Write-Host "  • Scheduled:   Runs at 11:00 AM and 4:00 PM daily; Friday 4:30 PM rollup"
 Write-Host "  • Output:      $plaudFolder"
 Write-Host "  • Logs:        $HOME\AppData\Local\plaud-meetings-digest\logs\"
 Write-Host ""
