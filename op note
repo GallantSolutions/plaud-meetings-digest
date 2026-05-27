@@ -1,1 +1,7 @@
-Get-ChildItem -Path "$env:LOCALAPPDATA","$env:USERPROFILE\.claude","$env:USERPROFILE\.local","$env:APPDATA\npm" -Filter "claude*" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.exe','.cmd','.bat') } | Select-Object -ExpandProperty FullName
+$claudeDir = "C:\Users\bblessing\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude-code\2.1.149"
+$env:Path = "$claudeDir;$env:Path"
+$userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+if ($userPath -notlike "*$claudeDir*") {
+    [System.Environment]::SetEnvironmentVariable("Path", "$claudeDir;$userPath", "User")
+}
+claude --version
