@@ -173,3 +173,13 @@ Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\logs\plaud-meetings-digest.
 
 Get-ChildItem "C:\Users\bblessing\OneDrive - NFI Consumer Products\Plaud Meetings" -Recurse | Select-Object Name, LastWriteTime
 
+
+
+
+
+Write-Host "--- task state ---"
+Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_Lunch' | Get-ScheduledTaskInfo | Select-Object LastRunTime, LastTaskResult, NumberOfMissedRuns
+Write-Host "--- live processes ---"
+Get-Process python, node, claude -ErrorAction SilentlyContinue | Select-Object ProcessName, Id, CPU, StartTime
+Write-Host "--- onedrive ---"
+Get-ChildItem "C:\Users\bblessing\OneDrive - NFI Consumer Products\Plaud Meetings" -Recurse -ErrorAction SilentlyContinue | Select-Object Name, FullName, LastWriteTime
