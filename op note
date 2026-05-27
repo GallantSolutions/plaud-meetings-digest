@@ -3,3 +3,6 @@ iwr -useb https://raw.githubusercontent.com/GallantSolutions/plaud-meetings-dige
 
 
 npm install -g @anthropic-ai/claude-code
+
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force
+
