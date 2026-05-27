@@ -1,0 +1,2 @@
+cd "$env:USERPROFILE\Downloads\plaud-meetings-digest-2.2.6\plaud-meetings-digest-2.2.6"
+.\install.ps1
