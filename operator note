@@ -1,3 +1,6 @@
 Start-ScheduledTask -TaskName 'PlaudMeetingsDigest_Lunch'
 
 Get-ChildItem "$env:LOCALAPPDATA\plaud-meetings-digest\logs" | Sort-Object LastWriteTime -Descending | Select-Object -First 3 Name, Length, LastWriteTime
+
+
+Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\logs\plaud-meetings-digest.log" -Tail 80
