@@ -116,3 +116,22 @@ winget install -e --id Git.Git --silent --accept-package-agreements --accept-sou
 
 
 Get-ChildItem -Path "C:\Program Files\Git","C:\Program Files (x86)\Git","$env:LOCALAPPDATA\Programs\Git" -Filter "bash.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName
+
+
+$bash = (Get-ChildItem -Path "C:\Program Files\Git","$env:LOCALAPPDATA\Programs\Git" -Filter "bash.exe" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike "*usr\bin*" } | Select-Object -First 1).FullName
+if ($bash) {
+    Write-Host "Found bash at: $bash"
+    [System.Environment]::SetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH", $bash, "User")
+    $env:CLAUDE_CODE_GIT_BASH_PATH = $bash
+    $gitDir = Split-Path (Split-Path $bash)
+    $userPath = [System.Environment]::GetEnvironmentVariable("Path", "User")
+    if ($userPath -notlike "*$gitDir*") {
+        [System.Environment]::SetEnvironmentVariable("Path", "$gitDir\cmd;$gitDir\bin;$userPath", "User")
+        $env:Path = "$gitDir\cmd;$gitDir\bin;$env:Path"
+    }
+    Write-Host "PATH updated."
+    bash --version
+} else {
+    Write-Host "bash.exe NOT found — Git install didn't actually land. Need to install manually."
+}
+
