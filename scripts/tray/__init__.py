@@ -1,0 +1,1 @@
+"""Plaud tray widget package."""

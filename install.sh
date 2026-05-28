@@ -352,9 +352,34 @@ mkdir -p "$SCRIPTS_INSTALL"
 
 cp "$SKILL_MEETINGS_SRC/SKILL.md" "$SKILL_MEETINGS_INSTALL/SKILL.md"
 cp "$SKILL_ROLLUP_SRC/SKILL.md"   "$SKILL_ROLLUP_INSTALL/SKILL.md"
-# Copy ALL python helpers (Notion + Word/OneDrive + state-store + onedrive-resolve + runner)
+# Copy ALL python helpers (Notion + Word/OneDrive + state-store + onedrive-resolve + runner + tray_bridge)
 cp "$SCRIPTS_SRC"/*.py "$SCRIPTS_INSTALL/"
 chmod +x "$SCRIPTS_INSTALL"/*.py
+
+# Tray subpackage — required because tray_bridge.py imports `from tray import state`.
+# The tray widget itself is Windows-only (pywebview + pystray), but the bridge runs
+# on whichever host fires the weekly rollup, so the package must be installed here too.
+TRAY_PKG_SRC="$SCRIPTS_SRC/tray"
+TRAY_PKG_DEST="$SCRIPTS_INSTALL/tray"
+if [[ -d "$TRAY_PKG_SRC" ]]; then
+  rm -rf "$TRAY_PKG_DEST"
+  mkdir -p "$TRAY_PKG_DEST"
+  # rsync gives us clean excludes for dev artifacts; fall back to cp + find if absent.
+  if command -v rsync &>/dev/null; then
+    rsync -a \
+      --exclude='preview.html' \
+      --exclude='README.md' \
+      --exclude='install_tray.ps1' \
+      --exclude='__pycache__' \
+      "$TRAY_PKG_SRC/" "$TRAY_PKG_DEST/"
+  else
+    cp -R "$TRAY_PKG_SRC/." "$TRAY_PKG_DEST/"
+    rm -f "$TRAY_PKG_DEST/preview.html" "$TRAY_PKG_DEST/README.md" "$TRAY_PKG_DEST/install_tray.ps1"
+    find "$TRAY_PKG_DEST" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+  fi
+  ok "Tray subpackage installed at $TRAY_PKG_DEST"
+fi
+
 mkdir -p "$SKILL_MEETINGS_INSTALL/state"
 
 # Build config.json from template

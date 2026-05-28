@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plaud — This week</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Nunito+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /*
+    Plaud tray widget — Kingsway-branded.
+    Brand tokens copied verbatim from the Command Center mockup
+    (04_labs/g_labs/plaud-meetings-digest/dist/dashboard-demo-2026-05-26.html)
+    so the tray and the CC read as one product.
+  */
+  :root {
+    --kw-blue:        #224088;
+    --kw-blue-dark:   #1a3168;
+    --kw-blue-soft:   #e9edf6;
+    --kw-gold:        #e5ac23;
+    --kw-gold-soft:   #faecc7;
+
+    --bg-page:        #faf9f5;
+    --bg-panel:       #f3f1e9;
+    --bg-inner:       #fefdfa;
+    --text-primary:   #2a2a2a;
+    --text-secondary: #4a4a4a;
+    --text-muted:     #6e6e6e;
+    --text-faint:     #969283;
+    --rule:           #e2dfd2;
+    --rule-strong:    #cfcab8;
+    --ok:             #4a8a45;
+    --alert:          #b73838;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: "Nunito Sans", system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    user-select: none;
+    overflow: hidden;
+  }
+  body { display: flex; flex-direction: column; height: 100vh; }
+  .display { font-family: "Jost", sans-serif; }
+  .mono { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+
+  /* ====== Header ====== */
+  .head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px 12px;
+    background: var(--bg-inner);
+    border-bottom: 1px solid var(--rule);
+    flex-shrink: 0;
+  }
+  .head img.logo { width: 28px; height: 28px; }
+  .head .title {
+    font-family: "Jost", sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--kw-blue);
+    letter-spacing: 0.005em;
+    line-height: 1.1;
+  }
+  .head .sub {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+  }
+  .head .grow { flex: 1; }
+
+  /* ====== Tabs ====== */
+  .tabs {
+    display: flex;
+    background: var(--bg-inner);
+    border-bottom: 1px solid var(--rule);
+    flex-shrink: 0;
+    padding: 0 8px;
+    gap: 2px;
+  }
+  .tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 9px 14px 8px;
+    font-family: "Jost", sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    letter-spacing: 0.01em;
+    transition: color 160ms ease-out, border-color 160ms ease-out;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .tab:hover { color: var(--kw-blue); }
+  .tab.active {
+    color: var(--kw-blue);
+    border-bottom-color: var(--kw-blue);
+    font-weight: 600;
+  }
+  .tab .badge {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--bg-panel);
+    color: var(--text-muted);
+    min-width: 18px;
+    text-align: center;
+    transition: background 160ms ease-out, color 160ms ease-out;
+  }
+  .tab.active .badge {
+    background: var(--kw-blue-soft);
+    color: var(--kw-blue-dark);
+  }
+  .tab.done-tab.active .badge {
+    background: #e6efe5;
+    color: #3d6638;
+  }
+
+  /* ====== List ====== */
+  .list { flex: 1; overflow-y: auto; padding: 0; }
+  .list::-webkit-scrollbar { width: 8px; }
+  .list::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 4px; }
+  .list::-webkit-scrollbar-track { background: transparent; }
+
+  /* Sticky section header per bucket */
+  .section-head {
+    position: sticky;
+    top: 0;
+    background: var(--bg-page);
+    padding: 9px 18px 6px;
+    border-bottom: 1px solid var(--rule);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-head .swatch {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .section-head.kp .swatch { background: var(--kw-blue); }
+  .section-head.cm .swatch { background: var(--kw-gold); }
+  .section-head.ch .swatch { background: #4a8a45; }
+  .section-head.pe .swatch { background: #6c5d8a; }
+  .section-head .name {
+    font-family: "Jost", sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .section-head .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    margin-left: auto;
+    letter-spacing: 0.02em;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+    padding: 12px 18px;
+    border-top: 1px solid var(--rule);
+    align-items: start;
+    transition: background 160ms ease-out, opacity 220ms ease-out;
+  }
+  .row:hover { background: var(--bg-panel); }
+
+  .check {
+    margin-top: 1px;
+    width: 17px; height: 17px;
+    border: 1.5px solid var(--rule-strong);
+    border-radius: 4px;
+    background: transparent center/12px 12px no-repeat;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    transition: background-color 160ms ease-out, border-color 160ms ease-out;
+    flex-shrink: 0;
+  }
+  .check:hover { border-color: var(--kw-blue); }
+  .check:checked {
+    /* Inline SVG checkmark centered via background-position. Pixel-perfect
+       at any box size — no rotated-border math drift. */
+    background-color: var(--kw-blue);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2.5 6.2 L5 8.7 L9.5 3.5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    border-color: var(--kw-blue);
+  }
+  .row.done .text {
+    text-decoration: line-through;
+    color: var(--text-muted);
+  }
+  .row.done { opacity: 0.6; }
+  .row.done-recent {
+    /* Subtle fade-out animation when an item gets checked off and
+       slides over to the Done tab. */
+    animation: fadeOut 260ms ease-out forwards;
+  }
+  @keyframes fadeOut {
+    to { opacity: 0; transform: translateY(-4px); }
+  }
+
+  .body { min-width: 0; }
+  .text {
+    font-size: 13.5px;
+    color: var(--text-primary);
+    line-height: 1.45;
+    margin-bottom: 6px;
+    word-wrap: break-word;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    align-items: center;
+    font-size: 11.5px;
+    color: var(--text-muted);
+  }
+  .src {
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 160ms;
+  }
+  .src:hover { border-bottom-color: var(--kw-blue); color: var(--kw-blue); }
+  .done-at {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: var(--text-faint);
+    letter-spacing: 0.02em;
+  }
+
+  /* ====== Empty state ====== */
+  .empty {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 48px 28px;
+    color: var(--text-muted);
+    height: 100%;
+  }
+  .empty .glyph {
+    font-family: "Jost", sans-serif;
+    font-size: 30px;
+    color: var(--kw-blue);
+    margin-bottom: 8px;
+    opacity: 0.45;
+    line-height: 1;
+  }
+  .empty .msg {
+    font-size: 13px;
+    line-height: 1.55;
+    max-width: 30ch;
+  }
+  .empty .msg strong { color: var(--text-secondary); font-weight: 600; }
+
+  /* ====== Footer ====== */
+  .foot {
+    display: flex; align-items: center;
+    padding: 10px 14px;
+    border-top: 1px solid var(--rule);
+    background: var(--bg-inner);
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .foot .stat {
+    flex: 1;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .foot button {
+    background: transparent;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    font-family: "Nunito Sans", sans-serif;
+    cursor: pointer;
+    transition: all 160ms;
+  }
+  .foot button:hover {
+    border-color: var(--kw-blue);
+    color: var(--kw-blue);
+    background: var(--bg-page);
+  }
+
+  /* ====== Toast for refresh / error ====== */
+  .toast {
+    position: fixed;
+    bottom: 60px; left: 50%;
+    transform: translate(-50%, 10px);
+    background: var(--text-primary);
+    color: var(--bg-inner);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 200ms, transform 200ms;
+    pointer-events: none;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+  <div class="head">
+    <img class="logo" src="{{KINGSWAY_LOGO_DATA_URI}}" alt="Kingsway">
+    <div>
+      <div class="title">This week</div>
+      <div class="sub" id="week-label">—</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-open" type="button" data-tab="open">
+      <span>Open</span>
+      <span class="badge" id="badge-open">0</span>
+    </button>
+    <button class="tab done-tab" id="tab-done" type="button" data-tab="done">
+      <span>Done</span>
+      <span class="badge" id="badge-done">0</span>
+    </button>
+  </div>
+
+  <div class="list" id="list"></div>
+
+  <div class="foot">
+    <div class="stat" id="stat">—</div>
+    <button id="open-folder" type="button" title="Open the OneDrive folder">OneDrive</button>
+    <button id="refresh" type="button" title="Re-scan meeting docs">Refresh</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  // Bucket display order locked: KP → CM → CH → PE
+  const BUCKET_ORDER = ["KP", "CM", "CH", "PE"];
+  const BUCKET_LABELS = {
+    "KP": "Kingsway Pharma",
+    "CM": "Committee",
+    "CH": "Church",
+    "PE": "Personal",
+  };
+
+  let activeTab = "open";
+  let lastData = { items: [], stats: { open: 0, done: 0, total: 0, week_iso: "—", rollup_fired_at: null } };
+
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 1400);
+  }
+
+  function escapeHtml(s) {
+    return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function formatDoneAt(iso) {
+    if (!iso) return "";
+    // Render "Tue 2:14 PM"
+    try {
+      const d = new Date(iso);
+      const weekday = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+      const hours = d.getHours() % 12 || 12;
+      const mins = d.getMinutes().toString().padStart(2, "0");
+      const ampm = d.getHours() >= 12 ? "PM" : "AM";
+      return `${weekday} ${hours}:${mins} ${ampm}`;
+    } catch (e) { return ""; }
+  }
+
+  function groupByBucket(items) {
+    const groups = {};
+    for (const b of BUCKET_ORDER) groups[b] = [];
+    for (const item of items) {
+      const b = (item.bucket || "PE").toUpperCase();
+      (groups[b] || (groups["PE"])).push(item);
+    }
+    return groups;
+  }
+
+  function renderRow(item, includeDoneAt) {
+    const safeText = escapeHtml(item.text);
+    const safeSrc = escapeHtml(item.source_meeting || "");
+    const safePath = escapeHtml(item.source_path || "");
+    const doneAtHtml = includeDoneAt && item.done_at
+      ? `<span class="done-at">closed ${escapeHtml(formatDoneAt(item.done_at))}</span>`
+      : "";
+    return `
+      <div class="row${item.done ? " done" : ""}" data-id="${escapeHtml(item.id)}"
+           data-text="${safeText}" data-bucket="${escapeHtml(item.bucket || "")}"
+           data-source-meeting="${safeSrc}">
+        <input class="check" type="checkbox" ${item.done ? "checked" : ""} aria-label="Mark done">
+        <div class="body">
+          <div class="text">${safeText}</div>
+          <div class="meta">
+            <span class="src" data-path="${safePath}">${safeSrc}</span>
+            ${doneAtHtml}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderEmpty(tab) {
+    if (tab === "open") {
+      return `
+        <div class="empty">
+          <div class="glyph">·</div>
+          <div class="msg">
+            <strong>All clear.</strong><br>
+            New action items appear here automatically as meeting docs land in OneDrive.
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="empty">
+        <div class="glyph">·</div>
+        <div class="msg">
+          Nothing closed yet this week.<br>
+          Items you check off in the Open tab land here until Friday's rollup.
+        </div>
+      </div>`;
+  }
+
+  function renderSection(bucket, items, includeDoneAt) {
+    if (!items.length) return "";
+    const label = BUCKET_LABELS[bucket] || bucket;
+    return `
+      <div class="section-head ${bucket.toLowerCase()}">
+        <span class="swatch"></span>
+        <span class="name">${escapeHtml(label)}</span>
+        <span class="num">${items.length}</span>
+      </div>
+      ${items.map(it => renderRow(it, includeDoneAt)).join("")}`;
+  }
+
+  function render(data) {
+    lastData = data;
+    const allItems = data.items || [];
+    const openItems = allItems.filter(i => !i.done);
+    const doneItems = allItems.filter(i => i.done);
+
+    $("badge-open").textContent = openItems.length;
+    $("badge-done").textContent = doneItems.length;
+
+    const list = $("list");
+    const tabItems = activeTab === "open" ? openItems : doneItems;
+    if (!tabItems.length) {
+      list.innerHTML = renderEmpty(activeTab);
+    } else {
+      const groups = groupByBucket(tabItems);
+      list.innerHTML = BUCKET_ORDER
+        .map(b => renderSection(b, groups[b] || [], activeTab === "done"))
+        .join("");
+    }
+
+    const stats = data.stats || {};
+    const bits = [];
+    if (stats.open !== undefined) bits.push(`${stats.open} open`);
+    if (stats.done !== undefined) bits.push(`${stats.done} done`);
+    if (stats.week_iso) bits.push(stats.week_iso);
+    $("stat").textContent = bits.join(" · ");
+    $("week-label").textContent = stats.week_iso || "—";
+  }
+
+  function setActiveTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll(".tab").forEach(t => {
+      t.classList.toggle("active", t.dataset.tab === tab);
+    });
+    render(lastData);
+  }
+
+  async function pull() {
+    try {
+      const data = await window.pywebview.api.refresh();
+      render(data);
+    } catch (e) {
+      toast("Refresh failed");
+    }
+  }
+
+  // Delegated checkbox toggle — passes text/bucket/source_meeting through
+  // so the rollup bridge can correlate this closure back to state_store.
+  document.getElementById("list").addEventListener("change", async (e) => {
+    if (!e.target.classList.contains("check")) return;
+    const row = e.target.closest(".row");
+    if (!row) return;
+    const id = row.dataset.id;
+    const done = e.target.checked;
+    const text = row.dataset.text || "";
+    const bucket = row.dataset.bucket || "";
+    const source = row.dataset.sourceMeeting || "";
+    if (done && activeTab === "open") {
+      // Visual cue — fade the row before the refresh replaces the DOM
+      row.classList.add("done-recent");
+    }
+    try {
+      const data = await window.pywebview.api.mark_done(id, done, text, bucket, source);
+      // Tiny defer so the fade animation can play through
+      setTimeout(() => render(data), done && activeTab === "open" ? 220 : 0);
+    } catch (err) {
+      toast("Save failed");
+      e.target.checked = !done;
+    }
+  });
+
+  // Click on source meeting → open the .docx
+  document.getElementById("list").addEventListener("click", (e) => {
+    if (e.target.classList.contains("src")) {
+      const path = e.target.dataset.path;
+      if (path) window.pywebview.api.open_source(path).catch(() => toast("Couldn't open"));
+    }
+  });
+
+  // Tab switching
+  document.querySelectorAll(".tab").forEach(t => {
+    t.addEventListener("click", () => setActiveTab(t.dataset.tab));
+  });
+
+  $("refresh").addEventListener("click", () => { pull(); toast("Refreshing…"); });
+  $("open-folder").addEventListener("click", () => window.pywebview.api.open_onedrive().catch(() => toast("Couldn't open")));
+
+  // Initial load — wait for pywebview ready
+  window.addEventListener("pywebviewready", pull);
+
+  // Pull when window becomes visible (tray click opens, focus event fires)
+  window.addEventListener("focus", () => {
+    if (window.pywebview && window.pywebview.api) pull();
+  });
+</script>
+</body>
+</html>

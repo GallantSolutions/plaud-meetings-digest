@@ -56,6 +56,8 @@ For each meeting type to roll up:
 
 0. **(v2.2.5+) Harvest closures from prior rollups first.** Before reading the items, walk the meeting type's OneDrive root for recent rollup `.docx` files via `rollup_docx_writer.harvest_closures(meeting_root, prefix=<rollup_filename_prefix>)`, dedupe by `item_id`, and call `state_store.append_closures()` on the result. This persists user-side `[x]` marks from last Saturday's review BEFORE the new rollup queries the backlog — so closed items don't reappear in this week's carry-over table.
 
+0a. **(v2.4.0-alpha+) Also harvest closures from the tray widget's state.** Run `python3 ~/.claude/skills/meetings-digest/scripts/tray_bridge.py --harvest` and pipe stdout (one JSON closure per line) into the same `state_store.append_closures()` flow. The tray widget is the operator's Mon–Thu working surface; anything they checked off there should land in the same closures.jsonl so this Friday's rollup excludes it. Idempotent — re-runs are safe. If the tray isn't installed, the command exits cleanly with zero closures and is a no-op.
+
 1. Call `state_store.read_items(since, until, meeting_types=[mtype])` to fetch the week's action items as a list of dicts. (Defaults to `exclude_closed=True`.)
 2. Call `state_store.read_items(meeting_types=[mtype], created_before=since)` and filter to items still in the active backlog (within `weekly_rollup.carry_over_window_days`, default 30) — these are carry-overs. Each row carries a stable `item_id` (8-char hash of action + source_file_id) that the rollup writer embeds as a Word-hidden text run in the Action cell so closure parsing can correlate `[x]` marks back to JSONL rows even if the user lightly edits the visible action wording.
 
@@ -130,6 +132,8 @@ python3 ~/.claude/skills/meetings-digest/scripts/rollup_docx_writer.py --input /
 ```
 
 The script writes to `{onedrive_folder}/Plaud Meetings/{meeting_type}/_weekly/<YYYY-WW> <meeting_type> Weekly Rollup.docx`. Prints the resolved path on success.
+
+**After the rollup writes successfully**, run `python3 ~/.claude/skills/meetings-digest/scripts/tray_bridge.py --mark-fired` once (not per-meeting-type — the marker is global). This stamps `rollup_fired_at` into the tray state.json so the tray widget's Done tab clears on next refresh. The operator now sees a fresh slate Saturday morning and the next week's items accumulate against a clean baseline.
 
 ### Mode B: `notion` (Mac default)
 

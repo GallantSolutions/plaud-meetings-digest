@@ -52,7 +52,7 @@ $ScriptsInstall       = Join-Path $SkillMeetingsInstall 'scripts'
 $ConfigInstall        = Join-Path $SkillMeetingsInstall 'config.json'
 $StateDir             = Join-Path $SkillMeetingsInstall 'state'
 
-Write-Header "Plaud Meetings Digest — Windows Installer (v2.3.1)"
+Write-Header "Plaud Meetings Digest — Windows Installer (v2.4.0)"
 
 # ============================================================================
 # Step 1 — Prerequisites
@@ -348,6 +348,18 @@ Copy-Item "$SkillMeetingsSrc\SKILL.md" "$SkillMeetingsInstall\SKILL.md" -Force
 Copy-Item "$SkillRollupSrc\SKILL.md"   "$SkillRollupInstall\SKILL.md"   -Force
 Copy-Item "$ScriptsSrc\*.py" "$ScriptsInstall" -Force
 
+# Tray subpackage — required because tray_bridge.py imports `from tray import state`.
+# Recursively copy scripts/tray/, excluding dev artifacts (preview HTML, cache, the
+# tray installer itself, and the README) so client install stays clean.
+$TrayPkgSrc  = Join-Path $ScriptsSrc 'tray'
+$TrayPkgDest = Join-Path $ScriptsInstall 'tray'
+if (Test-Path $TrayPkgDest) { Remove-Item -Recurse -Force $TrayPkgDest }
+$trayExclude = @('preview.html', 'README.md', 'install_tray.ps1', '__pycache__')
+Copy-Item -Recurse -Force -Path $TrayPkgSrc -Destination $TrayPkgDest -Exclude $trayExclude
+# -Exclude on Copy-Item only filters the top-level — sweep nested __pycache__ too.
+Get-ChildItem -Path $TrayPkgDest -Recurse -Force -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Write-Ok "Tray subpackage installed at $TrayPkgDest"
+
 # Build config.json
 $configTemplate = Get-Content $ConfigSrc -Raw | ConvertFrom-Json
 $configTemplate.installed_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
@@ -379,6 +391,31 @@ $VersionFile = Join-Path $BundlePrefix 'version.txt'
 $bundleVersion = $configTemplate.version
 Set-Content -Path $VersionFile -Value $bundleVersion -Encoding UTF8
 Write-Ok "Bundle version stamped: $bundleVersion -> $VersionFile"
+
+# ============================================================================
+# Step 5c — Tray widget (Kingsway action items in the system tray)
+# ============================================================================
+Write-Header "Step 5c — Installing tray widget"
+
+# install_tray.ps1 installs the pywebview/pystray/Pillow/watchdog deps, copies the
+# tray subpackage to %LOCALAPPDATA%/plaud-tray, and creates a Startup shortcut.
+# Failure here is non-fatal — the rollup pipeline still works without the tray;
+# the operator just doesn't get the system-tray UI.
+$TrayInstaller = Join-Path $ScriptsSrc 'tray\install_tray.ps1'
+if (Test-Path $TrayInstaller) {
+    try {
+        & $TrayInstaller -Quiet
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "Tray widget installed"
+        } else {
+            Write-Warn "Tray widget install returned non-zero exit code $LASTEXITCODE. Re-run scripts\tray\install_tray.ps1 manually to retry."
+        }
+    } catch {
+        Write-Warn "Tray widget install raised: $($_.Exception.Message). Re-run scripts\tray\install_tray.ps1 manually."
+    }
+} else {
+    Write-Warn "Tray installer not found at $TrayInstaller — skipping tray install."
+}
 
 # ============================================================================
 # Step 6 — Schedule three jobs
