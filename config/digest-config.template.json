@@ -1,7 +1,11 @@
 {
-  "version": "2.3.0",
+  "version": "2.3.1",
   "installed_at": null,
   "platform": null,
+  "claude_models": {
+    "meetings-digest": { "model": "claude-sonnet-4-6", "fallback": "claude-sonnet-4-6" },
+    "weekly-rollup":   { "model": "claude-opus-4-7",   "fallback": "claude-sonnet-4-6" }
+  },
   "gallant_heartbeat": {
     "enabled": false,
     "ping_base_url": "https://hc-ping.com",

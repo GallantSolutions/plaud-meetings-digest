@@ -52,7 +52,7 @@ $ScriptsInstall       = Join-Path $SkillMeetingsInstall 'scripts'
 $ConfigInstall        = Join-Path $SkillMeetingsInstall 'config.json'
 $StateDir             = Join-Path $SkillMeetingsInstall 'state'
 
-Write-Header "Plaud Meetings Digest — Windows Installer (v2.3.0)"
+Write-Header "Plaud Meetings Digest — Windows Installer (v2.3.1)"
 
 # ============================================================================
 # Step 1 — Prerequisites

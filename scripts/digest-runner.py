@@ -118,14 +118,33 @@ def main() -> int:
 
     log(f"Using claude at: {claude}")
 
+    # Model pinning (v2.3.1+). Each skill gets a model + a fallback. Defaults
+    # split by workload weight: per-meeting routing/title work is light (Sonnet
+    # is plenty); weekly rollup is heavy synthesis for a pharma-grade exec
+    # deliverable (Opus). Both fall back to Sonnet if the primary rate-limits.
+    # Operators override per-skill via config.claude_models.<skill>.
+    DEFAULT_MODELS = {
+        "meetings-digest": {"model": "claude-sonnet-4-6", "fallback": "claude-sonnet-4-6"},
+        "weekly-rollup":   {"model": "claude-opus-4-7",   "fallback": "claude-sonnet-4-6"},
+    }
+    config_models = config.get("claude_models", {}) or {}
+
     # Run each skill in one-shot mode. --dangerously-skip-permissions
     # auto-approves all tool calls in this scheduled (no-human) context.
     for skill in skills:
+        skill_models = config_models.get(skill, DEFAULT_MODELS.get(skill, {}))
+        model = skill_models.get("model", DEFAULT_MODELS.get(skill, {}).get("model"))
+        fallback = skill_models.get("fallback", DEFAULT_MODELS.get(skill, {}).get("fallback"))
+
         cmd = [
             claude,
             "-p", f"/{skill}",
             "--dangerously-skip-permissions",
         ]
+        if model:
+            cmd.extend(["--model", model])
+        if fallback and fallback != model:
+            cmd.extend(["--fallback-model", fallback])
         log(f"Invoking: {' '.join(cmd)}")
 
         try:
