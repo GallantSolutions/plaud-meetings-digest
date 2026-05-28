@@ -2,6 +2,21 @@
 
 Polish items + bug fixes discovered after release but not blocking daily use. Move items to a release once they're scoped + targeted.
 
+## v2.4.1 — auto-update tray propagation + install hardening (SHIPPED 2026-05-28)
+
+Same-day patch following v2.4.0. Surfaced during post-ship audit when the user asked "will tonight's auto-update reinstall the tray app + are my action items safe?" Three real gaps surfaced:
+
+- [x] **auto-update.ps1 didn't propagate the tray/ subpackage** to the live install. The earlier `Get-ChildItem -Filter '*.py' -File` filter shipped `tray_bridge.py` but left the `tray/` subdirectory behind, breaking `tray_bridge.py`'s `from tray import state` on Friday rollup day. Patched to recursively copy ALL scripts/ subpackages with the same exclusion list install.ps1 uses (preview.html, README.md, install_tray.ps1, __pycache__).
+- [x] **auto-update.ps1 didn't invoke install_tray.ps1**, meaning v2.4.0's tray widget would never appear after a nightly auto-update (only after a fresh `bootstrap.ps1` run). Patched to call `install_tray.ps1` after file replacement, wrapped in try/catch so a tray failure doesn't break auto-update itself.
+- [x] **tray_bridge.py defensive import** — the SKILL.md contract promised "if tray isn't installed, exit cleanly with zero closures," but the top-level `from tray import state` crashed before the defensive logic could run. Now wraps the import in try/except and returns [] / no-ops on ImportError. Belt-and-suspenders even after the auto-update fix lands.
+- [x] **install.ps1 prereq hardening** for enterprise environments where winget gets blocked / mirror lag / silently fails:
+  - Python: switched `Python.Python.3.11` (pinned) → `Python.Python.3` (alias rolls forward to latest 3.x major).
+  - Node + Python: added vendor-direct fallback (nodejs.org/dist/latest-v20.x/ for Node, python.org/api JSON for Python) when winget install doesn't take.
+  - Git for Windows: added install via winget `Git.Git` with vendor-direct fallback (git-for-windows GitHub releases). Auto-sets `CLAUDE_CODE_GIT_BASH_PATH` env var so Claude Code finds bash.exe (the Kingsway install hit this gap manually).
+- [x] **Validation**: sandbox dry-run via `/validate-build` passed all 5 assertions on the patched bundle. Re-audited via fresh sub-agent: 0 critical, 0 regressions.
+
+**Operator note**: tonight's 3 AM 2026-05-29 auto-update on Ben's machine pulls v2.4.1 (assuming this commit + tag lands before then). That installs the tray widget correctly via the patched auto-update path. Without v2.4.1, tonight's v2.4.0 update would have failed to bring up the tray + crashed the Friday rollup.
+
 ## v2.3.1 — Claude model pin (SHIPPED 2026-05-28)
 
 Commit `e44795c` · tag `v2.3.1` · release https://github.com/GallantSolutions/plaud-meetings-digest/releases/tag/v2.3.1

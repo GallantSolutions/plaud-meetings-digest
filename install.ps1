@@ -52,7 +52,7 @@ $ScriptsInstall       = Join-Path $SkillMeetingsInstall 'scripts'
 $ConfigInstall        = Join-Path $SkillMeetingsInstall 'config.json'
 $StateDir             = Join-Path $SkillMeetingsInstall 'state'
 
-Write-Header "Plaud Meetings Digest — Windows Installer (v2.4.0)"
+Write-Header "Plaud Meetings Digest — Windows Installer (v2.4.1)"
 
 # ============================================================================
 # Step 1 — Prerequisites
@@ -65,6 +65,33 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     exit 1
 }
 Write-Ok "winget found"
+
+# ---- Helpers: refresh PATH + vendor-direct fallback ----------------------
+# v2.4.1: winget alone isn't reliable on enterprise machines (TLS-MITM proxies,
+# AppLocker policies, stale mirror indices). Each prereq tries winget first,
+# then falls back to the vendor's official always-latest URL when winget fails.
+function Refresh-Path {
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+}
+
+function Install-FromUrl {
+    param(
+        [Parameter(Mandatory=$true)][string]$Url,
+        [Parameter(Mandatory=$true)][string]$Filename,
+        [Parameter(Mandatory=$true)][string[]]$SilentArgs
+    )
+    $tmp = Join-Path $env:TEMP $Filename
+    try {
+        Write-Step "Downloading $Url"
+        Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -TimeoutSec 300
+        Write-Step "Running installer with: $($SilentArgs -join ' ')"
+        $proc = Start-Process -FilePath $tmp -ArgumentList $SilentArgs -Wait -PassThru -NoNewWindow
+        return ($proc.ExitCode -eq 0)
+    } finally {
+        # Always clean up the temp installer, even on download failure
+        Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
+    }
+}
 
 # Node 20+
 $nodeOk = $false
@@ -80,18 +107,37 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
 }
 if (-not $nodeOk) {
     Write-Step "Installing Node.js 20 LTS via winget..."
-    winget install --id OpenJS.NodeJS.LTS -e --silent --accept-package-agreements --accept-source-agreements
-    # Refresh PATH for current session
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    winget install --id OpenJS.NodeJS.LTS -e --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+    Refresh-Path
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        Write-Warn "winget Node install didn't take. Falling back to direct download from nodejs.org."
+        # nodejs.org's "latest LTS" URL pattern. The v20.x major rolls forward
+        # to whatever LTS patch is current — always fresh, no mirror lag.
+        $arch = if ([System.Environment]::Is64BitOperatingSystem) { 'x64' } else { 'x86' }
+        # Resolve the actual filename from the latest-v20.x index page
+        try {
+            $idx = Invoke-WebRequest -Uri "https://nodejs.org/dist/latest-v20.x/" -UseBasicParsing -TimeoutSec 60
+            $msi = ($idx.Content -split "`n" | Select-String -Pattern "node-v[\d\.]+-$arch\.msi" | Select-Object -First 1).Matches.Value
+            if ($msi) {
+                $url = "https://nodejs.org/dist/latest-v20.x/$msi"
+                if (Install-FromUrl -Url $url -Filename "node-lts.msi" -SilentArgs @('/i', "$env:TEMP\node-lts.msi", '/qn', '/norestart')) {
+                    Refresh-Path
+                }
+            }
+        } catch {
+            Write-Warn "Direct Node download failed: $($_.Exception.Message)"
+        }
+    }
     if (Get-Command node -ErrorAction SilentlyContinue) {
         Write-Ok "Node $(node -v) installed"
     } else {
-        Write-Err "Node install may have succeeded but isn't on PATH yet. Close this terminal, open a fresh PowerShell, and re-run install.ps1."
+        Write-Err "Node install did not complete. Install manually from https://nodejs.org/en/download/ and re-run install.ps1."
         exit 1
     }
 }
 
-# Python 3.11+
+# Python 3.10+ (v2.4.1: use Python.Python.3 alias which rolls forward to
+# latest 3.x major, instead of the pinned 3.11 we had in v2.4.0).
 $pythonOk = $false
 if (Get-Command python -ErrorAction SilentlyContinue) {
     $pyVer = (python --version 2>&1) -replace 'Python ',''
@@ -102,14 +148,89 @@ if (Get-Command python -ErrorAction SilentlyContinue) {
     }
 }
 if (-not $pythonOk) {
-    Write-Step "Installing Python 3.11 via winget..."
-    winget install --id Python.Python.3.11 -e --silent --accept-package-agreements --accept-source-agreements
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    Write-Step "Installing latest Python 3.x via winget..."
+    winget install --id Python.Python.3 -e --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+    Refresh-Path
+    if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
+        Write-Warn "winget Python install didn't take. Falling back to direct download from python.org."
+        # Resolve the current latest stable 3.x via python.org's JSON API.
+        # Parse-by-name (not by API's `version` field, which is just the major
+        # int and ties across all 3.x). [version] cast on the trimmed name lets
+        # Sort-Object do correct semantic version ordering.
+        try {
+            $releases = Invoke-RestMethod -Uri "https://www.python.org/api/v2/downloads/release/?is_published=true&pre_release=false&format=json" -UseBasicParsing -TimeoutSec 60
+            $candidates = @()
+            foreach ($r in $releases) {
+                if ($r.name -match '^Python 3\.(\d+)\.(\d+)$' -and [int]$Matches[1] -ge 10) {
+                    $candidates += [PSCustomObject]@{
+                        Release = $r
+                        Semver  = [version]($r.name -replace '^Python ','')
+                    }
+                }
+            }
+            $latest = $candidates | Sort-Object -Property Semver -Descending | Select-Object -First 1
+            if ($latest) {
+                $relId = $latest.Release.resource_uri -replace '.+/(\d+)/$','$1'
+                $files = Invoke-RestMethod -Uri "https://www.python.org/api/v2/downloads/release_file/?release=$relId&format=json" -UseBasicParsing -TimeoutSec 60
+                $arch = if ([System.Environment]::Is64BitOperatingSystem) { 'amd64' } else { 'win32' }
+                $msi = $files | Where-Object { $_.url -match "${arch}\.exe$" } | Select-Object -First 1
+                if ($msi) {
+                    Write-Step "Installing $($latest.Release.name) from python.org"
+                    if (Install-FromUrl -Url $msi.url -Filename "python-stable.exe" -SilentArgs @('/quiet', 'InstallAllUsers=0', 'PrependPath=1', 'Include_test=0', 'Include_doc=0')) {
+                        Refresh-Path
+                    }
+                }
+            }
+        } catch {
+            Write-Warn "Direct Python download failed: $($_.Exception.Message)"
+        }
+    }
     if (Get-Command python -ErrorAction SilentlyContinue) {
         Write-Ok "Python $(python --version) installed"
     } else {
-        Write-Err "Python install may have succeeded but isn't on PATH yet. Close + reopen PowerShell and re-run install.ps1."
+        Write-Err "Python install did not complete. Install manually from https://www.python.org/downloads/windows/ and re-run install.ps1."
         exit 1
+    }
+}
+
+# Git for Windows — required by auto-update.ps1's GitHub pull path and by
+# Claude Code's bash invocation on Windows. Was missing from v2.4.0; the
+# Kingsway/Ben install hit this gap manually.
+$gitOk = $false
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    Write-Ok "Git: $(git --version)"
+    $gitOk = $true
+}
+if (-not $gitOk) {
+    Write-Step "Installing Git for Windows via winget..."
+    winget install --id Git.Git -e --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+    Refresh-Path
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        Write-Warn "winget Git install didn't take. Falling back to direct download from git-for-windows."
+        try {
+            $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest" -UseBasicParsing -TimeoutSec 60
+            $arch = if ([System.Environment]::Is64BitOperatingSystem) { '64-bit' } else { '32-bit' }
+            $asset = $rel.assets | Where-Object { $_.name -match "Git-.*-${arch}\.exe$" -and $_.name -notmatch 'portable' } | Select-Object -First 1
+            if ($asset) {
+                if (Install-FromUrl -Url $asset.browser_download_url -Filename "git-installer.exe" -SilentArgs @('/VERYSILENT', '/NORESTART', '/NOCANCEL', '/SP-', '/SUPPRESSMSGBOXES', '/COMPONENTS=icons,ext\reg\shellhere,assoc,assoc_sh')) {
+                    Refresh-Path
+                }
+            }
+        } catch {
+            Write-Warn "Direct Git download failed: $($_.Exception.Message)"
+        }
+    }
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        Write-Ok "Git $(git --version) installed"
+        # Set CLAUDE_CODE_GIT_BASH_PATH so Claude Code finds bash.exe
+        $gitDir = Split-Path -Parent (Get-Command git).Source
+        $bashPath = Join-Path (Split-Path -Parent $gitDir) 'bin\bash.exe'
+        if (Test-Path $bashPath) {
+            [Environment]::SetEnvironmentVariable("CLAUDE_CODE_GIT_BASH_PATH", $bashPath, "User")
+            Write-Ok "CLAUDE_CODE_GIT_BASH_PATH set to $bashPath"
+        }
+    } else {
+        Write-Warn "Git install did not complete. Some features (auto-update from GitHub, Claude Code bash invocation) may not work. Install manually from https://git-scm.com/download/win."
     }
 }
 

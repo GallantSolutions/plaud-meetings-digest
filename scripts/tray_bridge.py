@@ -49,7 +49,17 @@ HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
     sys.path.insert(0, str(HERE))
 
-from tray import state as tray_state  # noqa: E402
+# Defensive import (v2.4.1): the SKILL.md contract says "if tray isn't
+# installed, this command exits cleanly with zero closures." Honor that
+# even when the tray subpackage is genuinely missing (e.g., partial-bundle
+# install layouts) — return zero closures, exit 0, log to stderr.
+try:
+    from tray import state as tray_state  # noqa: E402
+    _TRAY_AVAILABLE = True
+except ImportError as _tray_import_error:
+    tray_state = None  # type: ignore[assignment]
+    _TRAY_AVAILABLE = False
+    _TRAY_IMPORT_ERROR = str(_tray_import_error)
 
 ITEMS_JSONL = Path.home() / ".claude" / "skills" / "meetings-digest" / "state" / "action-items.jsonl"
 
@@ -127,7 +137,12 @@ def harvest_tray_closures() -> list[dict]:
 
     Dedups against closures.jsonl already on disk so re-running this on the
     same week (manual retry, rollup re-run) doesn't append duplicates.
+
+    Returns [] when the tray subpackage isn't installed (per SKILL.md
+    contract — exits cleanly with zero closures).
     """
+    if not _TRAY_AVAILABLE:
+        return []
     state = tray_state.load_state()
     done_items = [
         (iid, entry) for iid, entry in state.get("items", {}).items()
@@ -189,7 +204,9 @@ def harvest_tray_closures() -> list[dict]:
 
 
 def mark_rollup_fired() -> None:
-    """Record that the rollup ran. Idempotent."""
+    """Record that the rollup ran. Idempotent. No-op when tray isn't installed."""
+    if not _TRAY_AVAILABLE:
+        return
     tray_state.mark_rollup_fired()
 
 
@@ -206,12 +223,18 @@ def main() -> int:
         closures = harvest_tray_closures()
         for rec in closures:
             print(json.dumps(rec, ensure_ascii=False))
-        sys.stderr.write(f"harvested {len(closures)} tray closure(s)\n")
+        if not _TRAY_AVAILABLE:
+            sys.stderr.write(f"tray subpackage unavailable ({_TRAY_IMPORT_ERROR}); harvested 0 closures\n")
+        else:
+            sys.stderr.write(f"harvested {len(closures)} tray closure(s)\n")
         return 0
 
     if args.mark_fired:
         mark_rollup_fired()
-        sys.stderr.write("tray rollup_fired_at marker written\n")
+        if not _TRAY_AVAILABLE:
+            sys.stderr.write(f"tray subpackage unavailable ({_TRAY_IMPORT_ERROR}); mark-fired skipped\n")
+        else:
+            sys.stderr.write("tray rollup_fired_at marker written\n")
         return 0
 
     return 1

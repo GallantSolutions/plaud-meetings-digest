@@ -224,17 +224,56 @@ if (Test-Path (Join-Path $BundlePrefix 'skills')) {
     }
 }
 
-# Copy scripts/*.py into the meetings-digest live install (where the
+# Copy scripts/ into the meetings-digest live install (where the
 # Scheduled Tasks point). Build-specific — the install-pattern scaffold
 # leaves this targeting plaud-meetings-digest; adjust per-build if a
 # different skill is the runtime target.
+#
+# v2.4.1 fix: copy the FULL scripts/ tree (including subpackages like tray/),
+# not just top-level *.py. The earlier *.py-only filter shipped tray_bridge.py
+# but left the tray/ subpackage behind, breaking tray_bridge's import on
+# Friday rollup day. Exclusions match install.ps1 + install_tray.ps1.
 $liveScripts = Join-Path $liveSkillsRoot 'meetings-digest\scripts'
 if (Test-Path $liveScripts) {
     $bundleScripts = Join-Path $BundlePrefix 'scripts'
+    $scriptExclude = @('preview.html', 'README.md', 'install_tray.ps1', '__pycache__')
+
+    # Top-level *.py files
     Get-ChildItem -Path $bundleScripts -Filter '*.py' -File -ErrorAction SilentlyContinue | ForEach-Object {
         Copy-Item -Path $_.FullName -Destination $liveScripts -Force
     }
-    Log "Updated Python helpers in $liveScripts"
+
+    # Subpackages — currently just tray/. Iterate so future subpackages
+    # propagate without editing this script.
+    Get-ChildItem -Path $bundleScripts -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $destSubdir = Join-Path $liveScripts $_.Name
+        if (Test-Path $destSubdir) { Remove-Item -Recurse -Force $destSubdir }
+        Copy-Item -Recurse -Force -Path $_.FullName -Destination $destSubdir -Exclude $scriptExclude
+        # -Exclude on Copy-Item only filters top level — sweep nested __pycache__.
+        Get-ChildItem -Path $destSubdir -Recurse -Force -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    Log "Updated Python helpers + subpackages in $liveScripts"
+}
+
+# v2.4.1: also (re)run install_tray.ps1 if the bundle ships one. install_tray.ps1
+# is idempotent — re-running upgrades deps + refreshes the Startup shortcut + only
+# launches the tray if it isn't already running. Wrapped in try/catch so a tray
+# install failure doesn't break the auto-update itself (the rollup pipeline still
+# works without the tray; the tray is a UI nice-to-have on top).
+$bundleTrayInstaller = Join-Path $BundlePrefix 'scripts\tray\install_tray.ps1'
+if (Test-Path $bundleTrayInstaller) {
+    Log "Running install_tray.ps1 to (re)install the system-tray widget"
+    try {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $bundleTrayInstaller -Quiet
+        if ($LASTEXITCODE -ne 0) {
+            Log "WARN: install_tray.ps1 exited with $LASTEXITCODE — tray may not be running. Re-run manually: $bundleTrayInstaller"
+        } else {
+            Log "Tray widget install/refresh complete"
+        }
+    } catch {
+        Log "WARN: install_tray.ps1 invocation raised: $($_.Exception.Message). Tray may not be running."
+    }
 }
 
 # ---- Update version stamp ------------------------------------------------
