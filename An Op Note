@@ -1,3 +1,9 @@
+Lunch → 656d717b-022f-4e76-917a-d3ef77dd3be7
+EOD → 60e1836e-4e00-456b-9149-4528444e077d
+Rollup → 016f96f7-2dc0-42a8-a821-76ef411e0ec7
+Auto-update → 12e1ccbf-44cd-4375-83ed-ff10006a8804
+
+
 Write-Host "Bundle version: $(Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\version.txt" -ErrorAction SilentlyContinue)"
 Write-Host "Live tray subpackage exists: $(Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\tray")"
 Write-Host "Bundle tray subpackage exists: $(Test-Path "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray")"
