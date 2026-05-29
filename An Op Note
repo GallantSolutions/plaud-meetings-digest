@@ -1,3 +1,45 @@
+$pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
+& $pyExe -c @"
+import sys
+sys.path.insert(0, r'C:\Users\bblessing\AppData\Local\plaud-tray')
+
+print('Step 1: importing tray module')
+from scripts.tray import tray as tray_mod
+
+print('Step 2: building icon')
+tray_mod._icon = tray_mod.build_tray_icon()
+print(f'  icon built. title={tray_mod._icon.title!r}')
+
+print('Step 3: creating webview window (hidden)')
+from scripts.tray import widget as widget_mod
+widget_mod.create_window()
+print('  window created')
+
+print('Step 4: starting webview in daemon thread')
+import threading, time
+def webview_thread():
+    try:
+        import webview
+        webview.start(debug=False)
+    except Exception as e:
+        print(f'  WEBVIEW THREAD ERROR: {type(e).__name__}: {e}')
+t = threading.Thread(target=webview_thread, name='webview', daemon=True)
+t.start()
+time.sleep(2)
+print(f'  webview thread alive after 2s: {t.is_alive()}')
+
+print('Step 5: calling icon.run() on MAIN thread (this blocks)')
+print('  >>> LOOK FOR THE KINGSWAY ICON IN YOUR TRAY NOW <<<')
+tray_mod._icon.run(setup=lambda _: print('  setup callback fired - icon should be visible'))
+print('Step 6: icon.run() returned (icon stopped or errored)')
+"@
+
+
+
+
+
+
+
 # Kill the existing tray processes (if any)
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'scripts\.tray\.tray' } | ForEach-Object {
     Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
