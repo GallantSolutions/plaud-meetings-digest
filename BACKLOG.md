@@ -2,6 +2,18 @@
 
 Polish items + bug fixes discovered after release but not blocking daily use. Move items to a release once they're scoped + targeted.
 
+## v2.4.3 — Tk widget bugfixes (SHIPPED 2026-05-29)
+
+Same-day patch on top of v2.4.2. Two real bugs in widget_tk.py surfaced when the widget was tested programmatically on Mac with a stub Api — both would have made the Tk widget non-functional on Ben's machine had v2.4.2 reached him:
+
+- [x] **`pady=(10, 4)` in `tk.Label` constructor — instant crash.** Tk widget constructors only accept scalar `pady`/`padx`; tuples are only valid in `.pack()` / `.grid()` geometry-manager calls. v2.4.2's bucket-section-header Label passed `pady=(10, 4)` to the constructor, which Tk parsed as a screen distance "10 4" and raised `TclError: bad screen distance "10 4"`. The widget would have crashed on the FIRST `_refresh()` call inside `create_window()`, before any window appeared. Fix: moved the asymmetric pady to the `.pack()` call where tuples are valid.
+
+- [x] **`tk.after()` from a background thread is NOT thread-safe.** v2.4.2's `show()` and `notify_change()` called `_root.after(0, callback)` directly from non-Tk threads (pystray's left-click callback runs on the pystray daemon thread; the OneDrive `.docx` watcher runs on the watchdog observer thread). Tcl/Tk uses thread-local interpreters and undefined behavior results — events queued from background threads may never fire on the Tk loop. **Click-to-show would have silently done nothing on Windows.** Fix: introduced a `queue.Queue` event channel; `show()`/`hide()`/`notify_change()` put string events to the queue; `_drain_events()` runs every 100ms on the Tk thread via `after()` and processes them. Canonical pattern matches the well-trodden `psgtray` library.
+
+- [x] **Mac-side programmatic test** (`/tmp/test_widget_tk_programmatic.py`) — 13 assertions: window construction, widget tree shape (5 checkboxes + 2 buttons + 4 bucket headers), checkbox toggle fires `mark_done` with correct args, re-toggle un-toggles, Refresh button increments refresh count, Open OneDrive button fires callback, `hide()` runs without crash, `notify_change()` from a background thread + drain fires refresh, `show()` from a background thread + drain fires `_do_show`. All 13 pass.
+
+**Operator note**: v2.4.2 reached GitHub but was not deployed to Ben's machine before this patch. Ben's auto-update tonight pulls v2.4.3 (skipping the broken v2.4.2 entirely via the version-walks-forward logic).
+
 ## v2.4.2 — tray fixes + canonical bundle location + Windows Tk widget (SHIPPED 2026-05-29)
 
 Patch release surfaced during the Kingsway/Ben install on 2026-05-29. Four real bugs blocked the tray widget from working on Ben's machine; all four shipped with this release.

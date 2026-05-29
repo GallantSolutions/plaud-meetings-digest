@@ -18,6 +18,7 @@ Threading:
 
 from __future__ import annotations
 
+import queue
 import tkinter as tk
 from tkinter import ttk
 from typing import Any
@@ -41,6 +42,15 @@ _root: tk.Tk | None = None
 _window: tk.Toplevel | None = None
 _scroll_frame: ttk.Frame | None = None
 _api: Api | None = None
+
+# Thread-safe event channel from pystray/watcher threads → Tk main loop.
+# Tk's Python binding is NOT thread-safe; tk.after() and direct widget
+# mutations from a non-Tk thread are undefined behavior (Tcl uses
+# thread-local interpreters). The canonical safe pattern is a queue
+# polled from the Tk thread via after(). Pystray's left-click + the
+# file watcher both feed this queue.
+_event_queue: queue.Queue[str] = queue.Queue()
+_DRAIN_INTERVAL_MS = 100
 
 
 def get_api() -> Api:
@@ -148,13 +158,14 @@ def _refresh() -> None:
     for bucket in ("KP", "CM", "CH", "PE", "OT"):
         if bucket not in by_bucket:
             continue
-        # Section header
+        # Section header. pady passed to .pack() — Tk widget constructors only
+        # accept scalar pady; pack/grid accept tuples for asymmetric spacing.
         section_header = tk.Label(
             _scroll_frame, text=BUCKET_LABELS.get(bucket, bucket),
             font=("Segoe UI", 10, "bold"), fg=KW_BLUE, bg="white",
-            anchor="w", padx=12, pady=(10, 4),
+            anchor="w", padx=12,
         )
-        section_header.pack(fill=tk.X)
+        section_header.pack(fill=tk.X, pady=(10, 4))
         for item in by_bucket[bucket]:
             _render_item(_scroll_frame, item)
 
@@ -225,38 +236,61 @@ def _on_open_onedrive() -> None:
 
 
 def show() -> None:
-    """Reveal the window. Safe to call from any thread (routes to Tk via after)."""
-    if _root is None or _window is None:
-        return
-    def _do_show():
-        _refresh()
-        _window.deiconify()
-        _window.lift()
-        _window.focus_force()
-    try:
-        _root.after(0, _do_show)
-    except Exception:
-        pass
+    """Reveal the window. SAFE to call from any thread.
+    Queues a 'show' event for the Tk thread to handle in _drain_events."""
+    _event_queue.put("show")
 
 
 def hide() -> None:
+    """Hide the window. SAFE to call from any thread."""
+    _event_queue.put("hide")
+
+
+def notify_change() -> None:
+    """Called from the file watcher (background thread). SAFE — queues a
+    refresh event for the Tk thread."""
+    _event_queue.put("refresh")
+
+
+def _do_show() -> None:
+    """Tk-thread implementation of show()."""
+    if _window is None:
+        return
+    _refresh()
+    _window.deiconify()
+    _window.lift()
+    _window.focus_force()
+
+
+def _do_hide() -> None:
     if _window is not None:
         _window.withdraw()
 
 
-def notify_change() -> None:
-    """Called from watcher (non-Tk thread). Refresh via after()."""
-    if _root is None:
-        return
+def _drain_events() -> None:
+    """Drain queued events from background threads on the Tk thread.
+    Re-arms itself every _DRAIN_INTERVAL_MS via after()."""
     try:
-        _root.after(0, _refresh)
-    except Exception:
+        while True:
+            event = _event_queue.get_nowait()
+            if event == "show":
+                _do_show()
+            elif event == "hide":
+                _do_hide()
+            elif event == "refresh":
+                _refresh()
+    except queue.Empty:
         pass
+    if _root is not None:
+        _root.after(_DRAIN_INTERVAL_MS, _drain_events)
 
 
 def run_mainloop() -> None:
-    """Block on the Tk event loop. Call from the main thread."""
+    """Block on the Tk event loop. Call from the main thread.
+    Starts the event-queue drainer before entering mainloop so events
+    queued from pystray/watcher threads get processed."""
     if _root is None:
         create_window()
     if _root is not None:
+        _root.after(_DRAIN_INTERVAL_MS, _drain_events)
         _root.mainloop()
