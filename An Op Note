@@ -224,3 +224,232 @@ Write-Host "Heartbeats wired. Four scheduled tasks re-registered." -ForegroundCo
 
 
 
+
+
+
+$tempBundle = "$env:TEMP\plaud-install-staging\plaud-meetings-digest-2.4.1"
+$liveBundle = "$env:LOCALAPPDATA\plaud-meetings-digest"
+
+Write-Host "Copying bundle from TEMP to LOCALAPPDATA..." -ForegroundColor Cyan
+
+# Preserve existing logs folder
+if (Test-Path "$liveBundle\logs") {
+    Move-Item "$liveBundle\logs" "$env:TEMP\plaud-logs-backup" -Force
+}
+
+# Wipe stale v2.2.6 leftovers
+if (Test-Path $liveBundle) {
+    Remove-Item $liveBundle -Recurse -Force
+}
+
+# Copy v2.4.1 bundle into place
+Copy-Item -Path $tempBundle -Destination $liveBundle -Recurse -Force
+
+# Restore preserved logs
+if (Test-Path "$env:TEMP\plaud-logs-backup") {
+    Move-Item "$env:TEMP\plaud-logs-backup" "$liveBundle\logs" -Force
+}
+
+Write-Host "Bundle copied. version.txt: $(Get-Content "$liveBundle\version.txt" -ErrorAction SilentlyContinue)" -ForegroundColor Green
+Write-Host ""
+
+# Unregister existing (TEMP-pointing) tasks
+Write-Host "Unregistering TEMP-pointing tasks..." -ForegroundColor Cyan
+@("PlaudMeetingsDigest_Lunch", "PlaudMeetingsDigest_EOD", "PlaudMeetingsDigest_Rollup", "PlaudMeetingsDigest_AutoUpdate") | ForEach-Object {
+    Unregister-ScheduledTask -TaskName $_ -Confirm:$false -ErrorAction SilentlyContinue
+}
+
+# Re-run schedule.ps1 from LOCALAPPDATA so $PSScriptRoot resolves to the stable location
+Write-Host "Re-registering tasks with stable LOCALAPPDATA paths..." -ForegroundColor Cyan
+& "$liveBundle\scripts\schedule.ps1"
+
+# Verify task targets no longer point at TEMP
+Write-Host ""
+Write-Host "--- Verification ---" -ForegroundColor Green
+Get-ScheduledTask | Where-Object { $_.TaskName -like "*Plaud*" } | ForEach-Object {
+    $action = $_.Actions[0]
+    $hasTempPath = $action.Arguments -match "Temp\\plaud-install-staging"
+    Write-Host "$($_.TaskName): " -NoNewline
+    if ($hasTempPath) {
+        Write-Host "STILL POINTING AT TEMP - schedule.ps1 may be hardcoding paths" -ForegroundColor Red
+    } else {
+        Write-Host "OK (stable path)" -ForegroundColor Green
+    }
+}
+
+
+
+
+Write-Host "--- LOCALAPPDATA bundle contents ---" -ForegroundColor Cyan
+Get-ChildItem "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorAction SilentlyContinue | Select-Object Name, LastWriteTime
+Write-Host ""
+
+Write-Host "--- TEMP staging bundle contents ---" -ForegroundColor Cyan
+Get-ChildItem "$env:TEMP\plaud-install-staging\plaud-meetings-digest-2.4.1" -ErrorAction SilentlyContinue | Select-Object Name, LastWriteTime
+Write-Host ""
+
+Write-Host "--- Scheduled task targets (where do they actually point?) ---" -ForegroundColor Cyan
+Get-ScheduledTask | Where-Object { $_.TaskName -like "*Plaud*" } | ForEach-Object {
+    $action = $_.Actions[0]
+    [PSCustomObject]@{
+        TaskName = $_.TaskName
+        Execute = $action.Execute
+        Arguments = $action.Arguments
+    }
+} | Format-List
+Write-Host ""
+
+Write-Host "--- Version.txt locations ---" -ForegroundColor Cyan
+"$env:LOCALAPPDATA\plaud-meetings-digest\version.txt", "$env:TEMP\plaud-install-staging\plaud-meetings-digest-2.4.1\version.txt" | ForEach-Object {
+    if (Test-Path $_) {
+        Write-Host "  $_ => $(Get-Content $_)"
+    } else {
+        Write-Host "  $_ => (missing)"
+    }
+}
+Write-Host ""
+
+Write-Host "--- MCP registration with Claude Code ---" -ForegroundColor Cyan
+claude mcp list 2>&1
+
+
+
+
+Lunch → 656d717b-022f-4e76-917a-d3ef77dd3be7
+EOD → 60e1836e-4e00-456b-9149-4528444e077d
+Rollup → 016f96f7-2dc0-42a8-a821-76ef411e0ec7
+Auto-update → 12e1ccbf-44cd-4375-83ed-ff10006a8804
+
+
+Write-Host "Bundle version: $(Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\version.txt" -ErrorAction SilentlyContinue)"
+Write-Host "Live tray subpackage exists: $(Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\tray")"
+Write-Host "Bundle tray subpackage exists: $(Test-Path "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray")"
+
+Write-Host "USERPROFILE: $env:USERPROFILE"
+Write-Host "LOCALAPPDATA: $env:LOCALAPPDATA"
+Write-Host "APPDATA: $env:APPDATA"
+Write-Host ""
+Write-Host "--- Searching for plaud-meetings-digest ---"
+Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "plaud*" -ErrorAction SilentlyContinue | Select-Object FullName
+Get-ChildItem -Path "$env:USERPROFILE" -Filter "plaud*" -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object FullName
+Get-ChildItem -Path "$env:USERPROFILE\.claude" -Recurse -Depth 3 -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*plaud*" -or $_.Name -like "*meetings*" } | Select-Object FullName
+Write-Host ""
+Write-Host "--- Scheduled tasks ---"
+Get-ScheduledTask | Where-Object { $_.TaskName -like "*Plaud*" -or $_.TaskName -like "*plaud*" } | Select-Object TaskName, State
+Write-Host ""
+Write-Host "--- Skill config location ---"
+Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
+Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -ErrorAction SilentlyContinue | Select-Object -First 5
+
+
+# === Phase 1: Download v2.4.1 to TEMP (safe in enterprise environments) ===
+$tagZipUrl = "https://github.com/GallantSolutions/plaud-meetings-digest/archive/refs/tags/v2.4.1.zip"
+$downloadPath = "$env:TEMP\plaud-2.4.1.zip"
+$extractRoot = "$env:TEMP\plaud-install-staging"
+$bundleSrc = "$extractRoot\plaud-meetings-digest-2.4.1"
+
+Write-Host "Downloading v2.4.1 to TEMP..." -ForegroundColor Cyan
+if (Test-Path $downloadPath) { Remove-Item $downloadPath -Force }
+if (Test-Path $extractRoot) { Remove-Item $extractRoot -Recurse -Force }
+New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+
+Invoke-WebRequest -Uri $tagZipUrl -OutFile $downloadPath -UseBasicParsing
+Expand-Archive -Path $downloadPath -DestinationPath $extractRoot -Force
+
+# Auto-detect bundle folder name in case tag naming differs
+if (!(Test-Path "$bundleSrc\install.ps1")) {
+    $bundleSrc = (Get-ChildItem $extractRoot -Directory | Where-Object { Test-Path "$($_.FullName)\install.ps1" } | Select-Object -First 1).FullName
+}
+
+if (!(Test-Path "$bundleSrc\install.ps1")) {
+    Write-Host "ERROR: install.ps1 not found anywhere under $extractRoot - stopping." -ForegroundColor Red
+    Get-ChildItem $extractRoot
+    return
+}
+
+Write-Host "Bundle found at: $bundleSrc" -ForegroundColor Green
+
+# === Phase 2: Run installer (interactive - press Enter through prompts) ===
+Write-Host ""
+Write-Host "Running install.ps1 - press Enter through prompts to accept defaults" -ForegroundColor Cyan
+Write-Host ""
+Set-Location $bundleSrc
+& ".\install.ps1"
+
+# === Phase 3: Verify install actually bumped version ===
+$finalCfg = Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -Raw | ConvertFrom-Json
+Write-Host ""
+Write-Host "Post-install live version: $($finalCfg.version)" -ForegroundColor Cyan
+
+if ($finalCfg.version -ne "2.4.1") {
+    Write-Host "WARNING: install did not bump version to 2.4.1 (still $($finalCfg.version)). Stopping before splice + schedule." -ForegroundColor Yellow
+    return
+}
+
+# === Phase 4: Re-splice Healthchecks UUIDs (in case install reset config) ===
+Write-Host "Re-splicing Healthchecks UUIDs..." -ForegroundColor Cyan
+$cfg = "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
+$j = Get-Content $cfg -Raw | ConvertFrom-Json
+$j.gallant_heartbeat.enabled = $true
+$j.gallant_heartbeat.checks.lunch       = '656d717b-022f-4e76-917a-d3ef77dd3be7'
+$j.gallant_heartbeat.checks.eod         = '60e1836e-4e00-456b-9149-4528444e077d'
+$j.gallant_heartbeat.checks.rollup      = '016f96f7-2dc0-42a8-a821-76ef411e0ec7'
+$j.gallant_heartbeat.checks.auto_update = '12e1ccbf-44cd-4375-83ed-ff10006a8804'
+($j | ConvertTo-Json -Depth 10) | Set-Content $cfg -Encoding UTF8
+
+# === Phase 5: Re-register scheduled tasks (auto-finds schedule.ps1 in bundle) ===
+$scheduleScript = Get-ChildItem "$env:LOCALAPPDATA\plaud-meetings-digest" -Recurse -Filter "schedule.ps1" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($scheduleScript) {
+    & $scheduleScript.FullName
+} else {
+    Write-Host "WARNING: schedule.ps1 not found in bundle - tasks not re-registered." -ForegroundColor Yellow
+}
+
+# === Phase 6: Verification ===
+Write-Host ""
+Write-Host "--- Final state ---" -ForegroundColor Green
+$verifyCfg = Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -Raw | ConvertFrom-Json
+Write-Host "Live skill version: $($verifyCfg.version)"
+Write-Host "Bundle version: $(Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\version.txt" -ErrorAction SilentlyContinue)"
+Write-Host "Tray installed: $(Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\tray")"
+Write-Host ""
+Write-Host "Healthcheck UUIDs:"
+$verifyCfg.gallant_heartbeat.checks | ConvertTo-Json
+Write-Host ""
+Write-Host "Scheduled tasks:"
+Get-ScheduledTask | Where-Object { $_.TaskName -like "*Plaud*" } | Select-Object TaskName, State
+
+
+
+
+
+# Copy tray/ subpackage from bundle source to the live skill scripts dir
+# (this is what v2.4.1's auto-update.ps1 would have done, but the version
+# match shortcircuits it tonight).
+$bundleTraySrc = "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray"
+$liveTrayDest  = "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\tray"
+if (Test-Path $liveTrayDest) { Remove-Item -Recurse -Force $liveTrayDest }
+Copy-Item -Recurse -Force -Path $bundleTraySrc -Destination $liveTrayDest -Exclude 'preview.html','README.md','install_tray.ps1','__pycache__'
+Get-ChildItem -Path $liveTrayDest -Recurse -Force -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "✓ tray subpackage copied to $liveTrayDest" -ForegroundColor Green
+
+# Run the tray installer (installs pywebview/pystray/Pillow/watchdog, copies
+# tray code to %LOCALAPPDATA%\plaud-tray, creates Startup shortcut, launches now)
+& "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray\install_tray.ps1"
+
+
+
+$cfg = "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
+$j = Get-Content $cfg -Raw | ConvertFrom-Json
+$j.gallant_heartbeat.enabled = $true
+$j.gallant_heartbeat.checks.lunch       = '<uuid-lunch>'
+$j.gallant_heartbeat.checks.eod         = '<uuid-eod>'
+$j.gallant_heartbeat.checks.rollup      = '<uuid-rollup>'
+$j.gallant_heartbeat.checks.auto_update = '<uuid-auto-update>'
+($j | ConvertTo-Json -Depth 10) | Set-Content $cfg -Encoding UTF8
+& "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\schedule.ps1"
+Write-Host "Heartbeats wired. Four scheduled tasks re-registered." -ForegroundColor Green
+
+
+
+
