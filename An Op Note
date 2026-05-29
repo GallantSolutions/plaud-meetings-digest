@@ -1,3 +1,38 @@
+Write-Host "--- LOCALAPPDATA bundle contents ---" -ForegroundColor Cyan
+Get-ChildItem "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorAction SilentlyContinue | Select-Object Name, LastWriteTime
+Write-Host ""
+
+Write-Host "--- TEMP staging bundle contents ---" -ForegroundColor Cyan
+Get-ChildItem "$env:TEMP\plaud-install-staging\plaud-meetings-digest-2.4.1" -ErrorAction SilentlyContinue | Select-Object Name, LastWriteTime
+Write-Host ""
+
+Write-Host "--- Scheduled task targets (where do they actually point?) ---" -ForegroundColor Cyan
+Get-ScheduledTask | Where-Object { $_.TaskName -like "*Plaud*" } | ForEach-Object {
+    $action = $_.Actions[0]
+    [PSCustomObject]@{
+        TaskName = $_.TaskName
+        Execute = $action.Execute
+        Arguments = $action.Arguments
+    }
+} | Format-List
+Write-Host ""
+
+Write-Host "--- Version.txt locations ---" -ForegroundColor Cyan
+"$env:LOCALAPPDATA\plaud-meetings-digest\version.txt", "$env:TEMP\plaud-install-staging\plaud-meetings-digest-2.4.1\version.txt" | ForEach-Object {
+    if (Test-Path $_) {
+        Write-Host "  $_ => $(Get-Content $_)"
+    } else {
+        Write-Host "  $_ => (missing)"
+    }
+}
+Write-Host ""
+
+Write-Host "--- MCP registration with Claude Code ---" -ForegroundColor Cyan
+claude mcp list 2>&1
+
+
+
+
 Lunch → 656d717b-022f-4e76-917a-d3ef77dd3be7
 EOD → 60e1836e-4e00-456b-9149-4528444e077d
 Rollup → 016f96f7-2dc0-42a8-a821-76ef411e0ec7
