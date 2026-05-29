@@ -1,3 +1,49 @@
+$trayInstaller = "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray\install_tray.ps1"
+
+if (!(Test-Path $trayInstaller)) {
+    Write-Host "ERROR: install_tray.ps1 not found at $trayInstaller" -ForegroundColor Red
+    return
+}
+
+# Byte-level em-dash to hyphen replace
+$bytes = [System.IO.File]::ReadAllBytes($trayInstaller)
+$result = New-Object System.Collections.Generic.List[byte]
+$i = 0
+$patches = 0
+while ($i -lt $bytes.Length) {
+    if (($i + 2) -lt $bytes.Length -and $bytes[$i] -eq 0xE2 -and $bytes[$i+1] -eq 0x80 -and $bytes[$i+2] -eq 0x94) {
+        $result.Add([byte]0x2D)
+        $i += 3
+        $patches++
+    } else {
+        $result.Add($bytes[$i])
+        $i++
+    }
+}
+[System.IO.File]::WriteAllBytes($trayInstaller, $result.ToArray())
+Write-Host "Patched $patches em-dash occurrence(s) in install_tray.ps1" -ForegroundColor Green
+Write-Host ""
+
+Write-Host "Re-running install_tray.ps1..." -ForegroundColor Cyan
+Write-Host ""
+& $trayInstaller
+Write-Host ""
+
+$startupShortcut = Join-Path ([System.Environment]::GetFolderPath('Startup')) 'Plaud Tray.lnk'
+$trayInstallRoot = Join-Path $env:LOCALAPPDATA 'plaud-tray'
+Write-Host "--- Tray verification ---" -ForegroundColor Green
+Write-Host "Startup shortcut exists: $(Test-Path $startupShortcut)"
+Write-Host "Tray install root exists: $(Test-Path $trayInstallRoot)"
+Write-Host "Tray process running: $((Get-Process -Name pythonw -ErrorAction SilentlyContinue | Where-Object {
+    (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)").CommandLine -match 'scripts.tray.tray'
+}).Count -gt 0)"
+
+
+
+
+
+
+
 $tempBundle = "$env:TEMP\plaud-install-staging\plaud-meetings-digest-2.4.1"
 $liveBundle = "$env:LOCALAPPDATA\plaud-meetings-digest"
 
