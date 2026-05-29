@@ -1,4 +1,10 @@
 $pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
+& $pyExe -c "import tkinter; print(f'tkinter OK, version {tkinter.TkVersion}')"
+
+
+
+
+$pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
 & $pyExe -c @"
 import sys
 sys.path.insert(0, r'C:\Users\bblessing\AppData\Local\plaud-tray')
