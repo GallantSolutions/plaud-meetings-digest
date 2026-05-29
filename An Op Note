@@ -1,6 +1,27 @@
 $pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
 & $pyExe -c @"
 import webview
+print('pywebview imported OK')
+try:
+    window = webview.create_window('Test', html='<h1>Hello from Plaud test</h1>', width=400, height=200)
+    print('Window created. Calling webview.start()...')
+    webview.start(debug=False)
+    print('webview.start() returned cleanly')
+except Exception as e:
+    print(f'EXCEPTION: {type(e).__name__}: {e}')
+    import traceback
+    traceback.print_exc()
+"@
+
+
+
+
+
+
+
+$pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
+& $pyExe -c @"
+import webview
 print(f'pywebview version: {webview.__version__}')
 try:
     window = webview.create_window('Test', html='<h1 style=\"font-family:Arial\">Hello from Plaud test</h1>', width=400, height=200)
