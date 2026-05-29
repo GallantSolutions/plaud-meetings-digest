@@ -1,3 +1,46 @@
+$pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
+
+# Manually install all 4 deps with warning suppression (PowerShell prompt doesn't have Stop error action)
+Write-Host "Installing pip deps directly..." -ForegroundColor Cyan
+& $pyExe -m pip install --upgrade --no-warn-script-location pywebview pystray Pillow watchdog
+
+# Verify all 4 import successfully
+Write-Host ""
+Write-Host "Verifying imports..." -ForegroundColor Cyan
+& $pyExe -c "import webview, pystray, PIL, watchdog; print('All 4 packages import OK')"
+Write-Host ""
+
+# Re-apply the em-dash patch to install_tray.ps1 PLUS apply the pip-warning fix
+$trayInstaller = "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray\install_tray.ps1"
+$content = Get-Content $trayInstaller -Raw -Encoding UTF8
+# Add --no-warn-script-location to pip command (idempotent — does nothing if already present)
+$content = $content -replace 'pip install --upgrade --quiet pywebview', 'pip install --upgrade --quiet --no-warn-script-location pywebview'
+Set-Content -Path $trayInstaller -Value $content -Encoding UTF8 -NoNewline
+
+# Re-run install_tray.ps1 — pip will be near-instant (deps already installed), proceeds to shortcut + launch
+Write-Host "Re-running install_tray.ps1..." -ForegroundColor Cyan
+Write-Host ""
+& $trayInstaller
+Write-Host ""
+
+# Verify
+$startupShortcut = Join-Path ([System.Environment]::GetFolderPath('Startup')) 'Plaud Tray.lnk'
+$trayInstallRoot = Join-Path $env:LOCALAPPDATA 'plaud-tray'
+Write-Host "--- Tray verification ---" -ForegroundColor Green
+Write-Host "Startup shortcut exists: $(Test-Path $startupShortcut)"
+Write-Host "Tray install root exists: $(Test-Path $trayInstallRoot)"
+Write-Host "Tray process running: $((Get-Process -Name pythonw -ErrorAction SilentlyContinue | Where-Object {
+    (Get-CimInstance Win32_Process -Filter "ProcessId=$($_.Id)").CommandLine -match 'scripts.tray.tray'
+}).Count -gt 0)"
+
+
+
+
+
+
+
+
+
 $trayInstaller = "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray\install_tray.ps1"
 
 if (!(Test-Path $trayInstaller)) {
