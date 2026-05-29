@@ -1,6 +1,24 @@
 $pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
 & $pyExe -c @"
 import sys
+sys.path.insert(0, r'C:\Users\bblessing\AppData\Local\plaud-tray')
+
+from scripts.tray.tray import build_tray_icon
+icon = build_tray_icon()
+print(f'Icon built. Title: {icon.title!r}')
+print('Calling icon.run() directly (NO daemon thread, NO webview)...')
+icon.run()
+"@
+
+
+
+
+
+
+
+$pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
+& $pyExe -c @"
+import sys
 from pathlib import Path
 
 import pystray
