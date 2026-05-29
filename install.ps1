@@ -40,7 +40,32 @@ function Write-Warn { param([string]$Text) Write-Host "⚠ $Text" -ForegroundCol
 function Write-Err  { param([string]$Text) Write-Host "✗ $Text" -ForegroundColor Red }
 
 # ---- Resolve paths --------------------------------------------------------
-$ScriptDir          = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# v2.4.2: Bundle must live at %LOCALAPPDATA%\plaud-meetings-digest so scheduled-task
+# targets, version.txt, and auto-update.ps1 paths stay stable across reboots
+# (Windows can clear %TEMP%, redirected enterprise Downloads folders, etc.). If
+# install.ps1 is running from anywhere else, copy the bundle to canonical first
+# and rebase $ScriptDir so every downstream path derives off the stable location.
+$CanonicalBundlePrefix = Join-Path $env:LOCALAPPDATA 'plaud-meetings-digest'
+if ($ScriptDir -ne $CanonicalBundlePrefix) {
+    Write-Host "→ Copying bundle to canonical location: $CanonicalBundlePrefix" -ForegroundColor Blue
+    $existingLogs = Join-Path $CanonicalBundlePrefix 'logs'
+    $logsBackup = Join-Path $env:TEMP "plaud-logs-backup-$([Guid]::NewGuid())"
+    if (Test-Path $existingLogs) {
+        Move-Item $existingLogs $logsBackup -Force
+    }
+    if (Test-Path $CanonicalBundlePrefix) {
+        Remove-Item $CanonicalBundlePrefix -Recurse -Force
+    }
+    Copy-Item -Path $ScriptDir -Destination $CanonicalBundlePrefix -Recurse -Force
+    if (Test-Path $logsBackup) {
+        Move-Item $logsBackup (Join-Path $CanonicalBundlePrefix 'logs') -Force
+    }
+    $ScriptDir = $CanonicalBundlePrefix
+    Write-Host "✓ Bundle at canonical location. Continuing install from there." -ForegroundColor Green
+}
+
 $SkillMeetingsSrc   = Join-Path $ScriptDir 'skills\meetings-digest'
 $SkillRollupSrc     = Join-Path $ScriptDir 'skills\weekly-rollup'
 $ScriptsSrc         = Join-Path $ScriptDir 'scripts'
@@ -52,7 +77,7 @@ $ScriptsInstall       = Join-Path $SkillMeetingsInstall 'scripts'
 $ConfigInstall        = Join-Path $SkillMeetingsInstall 'config.json'
 $StateDir             = Join-Path $SkillMeetingsInstall 'state'
 
-Write-Header "Plaud Meetings Digest — Windows Installer (v2.4.1)"
+Write-Header "Plaud Meetings Digest — Windows Installer (v2.4.2)"
 
 # ============================================================================
 # Step 1 — Prerequisites
