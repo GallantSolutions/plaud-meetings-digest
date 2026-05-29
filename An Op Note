@@ -1,0 +1,36 @@
+Write-Host "Bundle version: $(Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\version.txt" -ErrorAction SilentlyContinue)"
+Write-Host "Live tray subpackage exists: $(Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\tray")"
+Write-Host "Bundle tray subpackage exists: $(Test-Path "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray")"
+
+
+
+# Copy tray/ subpackage from bundle source to the live skill scripts dir
+# (this is what v2.4.1's auto-update.ps1 would have done, but the version
+# match shortcircuits it tonight).
+$bundleTraySrc = "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray"
+$liveTrayDest  = "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\tray"
+if (Test-Path $liveTrayDest) { Remove-Item -Recurse -Force $liveTrayDest }
+Copy-Item -Recurse -Force -Path $bundleTraySrc -Destination $liveTrayDest -Exclude 'preview.html','README.md','install_tray.ps1','__pycache__'
+Get-ChildItem -Path $liveTrayDest -Recurse -Force -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "✓ tray subpackage copied to $liveTrayDest" -ForegroundColor Green
+
+# Run the tray installer (installs pywebview/pystray/Pillow/watchdog, copies
+# tray code to %LOCALAPPDATA%\plaud-tray, creates Startup shortcut, launches now)
+& "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray\install_tray.ps1"
+
+
+
+$cfg = "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
+$j = Get-Content $cfg -Raw | ConvertFrom-Json
+$j.gallant_heartbeat.enabled = $true
+$j.gallant_heartbeat.checks.lunch       = '<uuid-lunch>'
+$j.gallant_heartbeat.checks.eod         = '<uuid-eod>'
+$j.gallant_heartbeat.checks.rollup      = '<uuid-rollup>'
+$j.gallant_heartbeat.checks.auto_update = '<uuid-auto-update>'
+($j | ConvertTo-Json -Depth 10) | Set-Content $cfg -Encoding UTF8
+& "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\schedule.ps1"
+Write-Host "Heartbeats wired. Four scheduled tasks re-registered." -ForegroundColor Green
+
+
+
+
