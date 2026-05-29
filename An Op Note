@@ -1,3 +1,57 @@
+# 1. Broader tray process check (any process matching the tray module)
+Write-Host "--- Tray process check (broader) ---" -ForegroundColor Cyan
+$trayProcs = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'scripts\.tray\.tray' }
+if ($trayProcs) {
+    Write-Host "Tray is running:" -ForegroundColor Green
+    $trayProcs | Select-Object ProcessId, Name | Format-Table -AutoSize
+} else {
+    Write-Host "Not running. Trying manual foreground launch to surface any errors..." -ForegroundColor Yellow
+    $pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
+    $wd = "$env:LOCALAPPDATA\plaud-tray"
+    Push-Location $wd
+    & $pyExe -c "import sys; sys.path.insert(0, '.'); from scripts.tray import tray; print('tray module imports OK')"
+    Pop-Location
+    Write-Host ""
+    Write-Host "Tray will auto-launch at next Windows login via Startup shortcut. Test by signing out + back in, or double-click:" -ForegroundColor Yellow
+    Write-Host "  $env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Plaud Tray.lnk"
+}
+Write-Host ""
+
+# 2. Smoke test — fire Lunch task to validate end-to-end Healthchecks chain
+Write-Host "--- Smoke test: firing Lunch task ---" -ForegroundColor Cyan
+Start-ScheduledTask -TaskName 'PlaudMeetingsDigest_Lunch'
+Write-Host "Lunch task started. Watch your Healthchecks dashboard - Lunch check should turn green within ~30s." -ForegroundColor Green
+Write-Host ""
+
+# 3. Tidy TEMP
+Write-Host "--- Tidying TEMP ---" -ForegroundColor Cyan
+Set-Location $env:USERPROFILE  # leave the temp dir before deleting it
+Remove-Item "$env:TEMP\plaud-install-staging" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:TEMP\plaud-2.4.1.zip" -Force -ErrorAction SilentlyContinue
+Write-Host "Temp staging removed." -ForegroundColor Green
+Write-Host ""
+
+# 4. Final summary
+Write-Host "--- BEN MACHINE FINAL STATE ---" -ForegroundColor Green
+Write-Host "Bundle:    $env:LOCALAPPDATA\plaud-meetings-digest (v$(Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\version.txt" -ErrorAction SilentlyContinue))"
+Write-Host "Skill:     $env:USERPROFILE\.claude\skills\meetings-digest (v$((Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -Raw | ConvertFrom-Json).version))"
+Write-Host "Tray code: $env:LOCALAPPDATA\plaud-tray (Startup shortcut: $(Test-Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Plaud Tray.lnk"))"
+Write-Host "MCP:       $((claude mcp list 2>&1 | Select-String 'plaud').ToString())"
+Write-Host ""
+Write-Host "Scheduled tasks:"
+Get-ScheduledTask | Where-Object { $_.TaskName -like '*Plaud*' } | Select-Object TaskName, State, @{N='NextRun';E={(Get-ScheduledTaskInfo -TaskName $_.TaskName).NextRunTime}} | Format-Table -AutoSize
+
+
+
+
+
+
+
+
+
+
+
+
 $pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
 
 # Manually install all 4 deps with warning suppression (PowerShell prompt doesn't have Stop error action)
