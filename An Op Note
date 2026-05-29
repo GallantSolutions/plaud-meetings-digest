@@ -19,38 +19,52 @@ Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
 Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -ErrorAction SilentlyContinue | Select-Object -First 5
 
 
-# === Phase 1: Download v2.4.1 from GitHub ===
+# === Phase 1: Download v2.4.1 to TEMP (safe in enterprise environments) ===
 $tagZipUrl = "https://github.com/GallantSolutions/plaud-meetings-digest/archive/refs/tags/v2.4.1.zip"
-$downloadPath = "$env:USERPROFILE\Downloads\plaud-2.4.1.zip"
-$extractRoot = "$env:USERPROFILE\Downloads"
+$downloadPath = "$env:TEMP\plaud-2.4.1.zip"
+$extractRoot = "$env:TEMP\plaud-install-staging"
 $bundleSrc = "$extractRoot\plaud-meetings-digest-2.4.1"
 
-Write-Host "Downloading v2.4.1..." -ForegroundColor Cyan
+Write-Host "Downloading v2.4.1 to TEMP..." -ForegroundColor Cyan
 if (Test-Path $downloadPath) { Remove-Item $downloadPath -Force }
-if (Test-Path $bundleSrc) { Remove-Item $bundleSrc -Recurse -Force }
+if (Test-Path $extractRoot) { Remove-Item $extractRoot -Recurse -Force }
+New-Item -ItemType Directory -Path $extractRoot -Force | Out-Null
+
 Invoke-WebRequest -Uri $tagZipUrl -OutFile $downloadPath -UseBasicParsing
 Expand-Archive -Path $downloadPath -DestinationPath $extractRoot -Force
 
+# Auto-detect bundle folder name in case tag naming differs
 if (!(Test-Path "$bundleSrc\install.ps1")) {
-    Write-Host "ERROR: install.ps1 not found at $bundleSrc - stopping." -ForegroundColor Red
+    $bundleSrc = (Get-ChildItem $extractRoot -Directory | Where-Object { Test-Path "$($_.FullName)\install.ps1" } | Select-Object -First 1).FullName
+}
+
+if (!(Test-Path "$bundleSrc\install.ps1")) {
+    Write-Host "ERROR: install.ps1 not found anywhere under $extractRoot - stopping." -ForegroundColor Red
+    Get-ChildItem $extractRoot
     return
 }
 
-# === Phase 2: Run installer (interactive - Ben presses Enter through prompts) ===
+Write-Host "Bundle found at: $bundleSrc" -ForegroundColor Green
+
+# === Phase 2: Run installer (interactive - press Enter through prompts) ===
 Write-Host ""
 Write-Host "Running install.ps1 - press Enter through prompts to accept defaults" -ForegroundColor Cyan
 Write-Host ""
 Set-Location $bundleSrc
 & ".\install.ps1"
 
-if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
-    Write-Host "Install exited non-zero ($LASTEXITCODE) - stopping before splice." -ForegroundColor Red
+# === Phase 3: Verify install actually bumped version ===
+$finalCfg = Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -Raw | ConvertFrom-Json
+Write-Host ""
+Write-Host "Post-install live version: $($finalCfg.version)" -ForegroundColor Cyan
+
+if ($finalCfg.version -ne "2.4.1") {
+    Write-Host "WARNING: install did not bump version to 2.4.1 (still $($finalCfg.version)). Stopping before splice + schedule." -ForegroundColor Yellow
     return
 }
 
-# === Phase 3: Splice Healthchecks UUIDs ===
-Write-Host ""
-Write-Host "Splicing Healthchecks UUIDs..." -ForegroundColor Cyan
+# === Phase 4: Re-splice Healthchecks UUIDs (in case install reset config) ===
+Write-Host "Re-splicing Healthchecks UUIDs..." -ForegroundColor Cyan
 $cfg = "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
 $j = Get-Content $cfg -Raw | ConvertFrom-Json
 $j.gallant_heartbeat.enabled = $true
@@ -60,19 +74,24 @@ $j.gallant_heartbeat.checks.rollup      = '016f96f7-2dc0-42a8-a821-76ef411e0ec7'
 $j.gallant_heartbeat.checks.auto_update = '12e1ccbf-44cd-4375-83ed-ff10006a8804'
 ($j | ConvertTo-Json -Depth 10) | Set-Content $cfg -Encoding UTF8
 
-# === Phase 4: Re-register scheduled tasks (picks up new task targets if changed) ===
-& "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\schedule.ps1"
+# === Phase 5: Re-register scheduled tasks (auto-finds schedule.ps1 in bundle) ===
+$scheduleScript = Get-ChildItem "$env:LOCALAPPDATA\plaud-meetings-digest" -Recurse -Filter "schedule.ps1" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($scheduleScript) {
+    & $scheduleScript.FullName
+} else {
+    Write-Host "WARNING: schedule.ps1 not found in bundle - tasks not re-registered." -ForegroundColor Yellow
+}
 
-# === Phase 5: Verification ===
+# === Phase 6: Verification ===
 Write-Host ""
 Write-Host "--- Final state ---" -ForegroundColor Green
-$finalCfg = Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -Raw | ConvertFrom-Json
-Write-Host "Live skill version: $($finalCfg.version)"
+$verifyCfg = Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -Raw | ConvertFrom-Json
+Write-Host "Live skill version: $($verifyCfg.version)"
 Write-Host "Bundle version: $(Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\version.txt" -ErrorAction SilentlyContinue)"
 Write-Host "Tray installed: $(Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\tray")"
 Write-Host ""
 Write-Host "Healthcheck UUIDs:"
-$finalCfg.gallant_heartbeat.checks | ConvertTo-Json
+$verifyCfg.gallant_heartbeat.checks | ConvertTo-Json
 Write-Host ""
 Write-Host "Scheduled tasks:"
 Get-ScheduledTask | Where-Object { $_.TaskName -like "*Plaud*" } | Select-Object TaskName, State
