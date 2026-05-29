@@ -1,3 +1,17 @@
+$pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
+& $pyExe -c @"
+import pystray
+from PIL import Image
+img = Image.new('RGBA', (64, 64), 'red')
+icon = pystray.Icon('test', img, 'Test - red square', menu=pystray.Menu(pystray.MenuItem('Quit', lambda icon, item: icon.stop())))
+print('Calling icon.run() - look for a RED SQUARE in your system tray (or overflow)')
+icon.run()
+"@
+
+
+
+
+
 # Kill the running tray processes
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'scripts\.tray\.tray' } | ForEach-Object {
     Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
