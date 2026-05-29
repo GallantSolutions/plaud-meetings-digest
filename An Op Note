@@ -1,3 +1,56 @@
+$tempBundle = "$env:TEMP\plaud-install-staging\plaud-meetings-digest-2.4.1"
+$liveBundle = "$env:LOCALAPPDATA\plaud-meetings-digest"
+
+Write-Host "Copying bundle from TEMP to LOCALAPPDATA..." -ForegroundColor Cyan
+
+# Preserve existing logs folder
+if (Test-Path "$liveBundle\logs") {
+    Move-Item "$liveBundle\logs" "$env:TEMP\plaud-logs-backup" -Force
+}
+
+# Wipe stale v2.2.6 leftovers
+if (Test-Path $liveBundle) {
+    Remove-Item $liveBundle -Recurse -Force
+}
+
+# Copy v2.4.1 bundle into place
+Copy-Item -Path $tempBundle -Destination $liveBundle -Recurse -Force
+
+# Restore preserved logs
+if (Test-Path "$env:TEMP\plaud-logs-backup") {
+    Move-Item "$env:TEMP\plaud-logs-backup" "$liveBundle\logs" -Force
+}
+
+Write-Host "Bundle copied. version.txt: $(Get-Content "$liveBundle\version.txt" -ErrorAction SilentlyContinue)" -ForegroundColor Green
+Write-Host ""
+
+# Unregister existing (TEMP-pointing) tasks
+Write-Host "Unregistering TEMP-pointing tasks..." -ForegroundColor Cyan
+@("PlaudMeetingsDigest_Lunch", "PlaudMeetingsDigest_EOD", "PlaudMeetingsDigest_Rollup", "PlaudMeetingsDigest_AutoUpdate") | ForEach-Object {
+    Unregister-ScheduledTask -TaskName $_ -Confirm:$false -ErrorAction SilentlyContinue
+}
+
+# Re-run schedule.ps1 from LOCALAPPDATA so $PSScriptRoot resolves to the stable location
+Write-Host "Re-registering tasks with stable LOCALAPPDATA paths..." -ForegroundColor Cyan
+& "$liveBundle\scripts\schedule.ps1"
+
+# Verify task targets no longer point at TEMP
+Write-Host ""
+Write-Host "--- Verification ---" -ForegroundColor Green
+Get-ScheduledTask | Where-Object { $_.TaskName -like "*Plaud*" } | ForEach-Object {
+    $action = $_.Actions[0]
+    $hasTempPath = $action.Arguments -match "Temp\\plaud-install-staging"
+    Write-Host "$($_.TaskName): " -NoNewline
+    if ($hasTempPath) {
+        Write-Host "STILL POINTING AT TEMP - schedule.ps1 may be hardcoding paths" -ForegroundColor Red
+    } else {
+        Write-Host "OK (stable path)" -ForegroundColor Green
+    }
+}
+
+
+
+
 Write-Host "--- LOCALAPPDATA bundle contents ---" -ForegroundColor Cyan
 Get-ChildItem "$env:LOCALAPPDATA\plaud-meetings-digest" -ErrorAction SilentlyContinue | Select-Object Name, LastWriteTime
 Write-Host ""
