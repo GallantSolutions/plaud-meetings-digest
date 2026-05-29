@@ -1,3 +1,23 @@
+# Kill the running tray processes
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'scripts\.tray\.tray' } | ForEach-Object {
+    Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+}
+Start-Sleep -Seconds 2
+
+# Relaunch in foreground — any stderr/errors will print
+$pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
+$wd = "$env:LOCALAPPDATA\plaud-tray"
+Push-Location $wd
+Write-Host "Launching tray in foreground (Ctrl+C to stop, then re-run install_tray.ps1 to relaunch in background)..." -ForegroundColor Cyan
+& $pyExe -m scripts.tray.tray
+Pop-Location
+
+
+
+
+
+
+
 # 1. Broader tray process check (any process matching the tray module)
 Write-Host "--- Tray process check (broader) ---" -ForegroundColor Cyan
 $trayProcs = Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'scripts\.tray\.tray' }
