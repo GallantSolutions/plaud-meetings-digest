@@ -19,6 +19,66 @@ Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
 Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -ErrorAction SilentlyContinue | Select-Object -First 5
 
 
+# === Phase 1: Download v2.4.1 from GitHub ===
+$tagZipUrl = "https://github.com/GallantSolutions/plaud-meetings-digest/archive/refs/tags/v2.4.1.zip"
+$downloadPath = "$env:USERPROFILE\Downloads\plaud-2.4.1.zip"
+$extractRoot = "$env:USERPROFILE\Downloads"
+$bundleSrc = "$extractRoot\plaud-meetings-digest-2.4.1"
+
+Write-Host "Downloading v2.4.1..." -ForegroundColor Cyan
+if (Test-Path $downloadPath) { Remove-Item $downloadPath -Force }
+if (Test-Path $bundleSrc) { Remove-Item $bundleSrc -Recurse -Force }
+Invoke-WebRequest -Uri $tagZipUrl -OutFile $downloadPath -UseBasicParsing
+Expand-Archive -Path $downloadPath -DestinationPath $extractRoot -Force
+
+if (!(Test-Path "$bundleSrc\install.ps1")) {
+    Write-Host "ERROR: install.ps1 not found at $bundleSrc - stopping." -ForegroundColor Red
+    return
+}
+
+# === Phase 2: Run installer (interactive - Ben presses Enter through prompts) ===
+Write-Host ""
+Write-Host "Running install.ps1 - press Enter through prompts to accept defaults" -ForegroundColor Cyan
+Write-Host ""
+Set-Location $bundleSrc
+& ".\install.ps1"
+
+if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne $null) {
+    Write-Host "Install exited non-zero ($LASTEXITCODE) - stopping before splice." -ForegroundColor Red
+    return
+}
+
+# === Phase 3: Splice Healthchecks UUIDs ===
+Write-Host ""
+Write-Host "Splicing Healthchecks UUIDs..." -ForegroundColor Cyan
+$cfg = "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
+$j = Get-Content $cfg -Raw | ConvertFrom-Json
+$j.gallant_heartbeat.enabled = $true
+$j.gallant_heartbeat.checks.lunch       = '656d717b-022f-4e76-917a-d3ef77dd3be7'
+$j.gallant_heartbeat.checks.eod         = '60e1836e-4e00-456b-9149-4528444e077d'
+$j.gallant_heartbeat.checks.rollup      = '016f96f7-2dc0-42a8-a821-76ef411e0ec7'
+$j.gallant_heartbeat.checks.auto_update = '12e1ccbf-44cd-4375-83ed-ff10006a8804'
+($j | ConvertTo-Json -Depth 10) | Set-Content $cfg -Encoding UTF8
+
+# === Phase 4: Re-register scheduled tasks (picks up new task targets if changed) ===
+& "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\schedule.ps1"
+
+# === Phase 5: Verification ===
+Write-Host ""
+Write-Host "--- Final state ---" -ForegroundColor Green
+$finalCfg = Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -Raw | ConvertFrom-Json
+Write-Host "Live skill version: $($finalCfg.version)"
+Write-Host "Bundle version: $(Get-Content "$env:LOCALAPPDATA\plaud-meetings-digest\version.txt" -ErrorAction SilentlyContinue)"
+Write-Host "Tray installed: $(Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\tray")"
+Write-Host ""
+Write-Host "Healthcheck UUIDs:"
+$finalCfg.gallant_heartbeat.checks | ConvertTo-Json
+Write-Host ""
+Write-Host "Scheduled tasks:"
+Get-ScheduledTask | Where-Object { $_.TaskName -like "*Plaud*" } | Select-Object TaskName, State
+
+
+
 
 
 # Copy tray/ subpackage from bundle source to the live skill scripts dir
