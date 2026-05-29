@@ -187,6 +187,56 @@ The bundle keeps itself current. When you publish a new GitHub Release (`gh rele
 
 **Auto-rollback (v2.2.3+):** If a scheduled job fails non-zero AND the most recent auto-update happened within the last 24h, the heartbeat wrapper automatically restores the previous version's bundle snapshot. You'll get a Healthchecks `fail` ping that announces the failure (operator's normal alert path). Check `<install-prefix>/logs/auto-rollback.log` for the rollback audit trail. The marker file `<install-prefix>/.last-update.json` sets `rolled_back: true` so the rollback is one-shot per update — subsequent failures don't recurse. To re-enable rollback for a fresh update push, just push a new release: the next auto-update writes a new marker with `rolled_back: false`.
 
+### Playwright Export-tier fetch (v2.5.0+, opt-in)
+
+The default v2.5.0 install behaves identically to v2.4.1 — `config.plaud.method = "mcp_only"`, content fetched via Plaud's MCP server, no Playwright involvement. The Playwright code is shipped but dormant.
+
+**To enable Plaud's rich Export-tier Summary fetch on a client install:**
+
+1. **First — verify selectors on your dev machine** (Garrett's Mac, against Garrett's Plaud account):
+   ```powershell
+   # Mac equivalent: python3 -m playwright codegen https://web.plaud.ai/
+   .\scripts\playwright_setup.ps1 -CodegenMode
+   ```
+   This opens Playwright Codegen against `web.plaud.ai`. Log in, navigate to files list, click into a meeting, click Export, choose Markdown. Codegen records selectors. Inspect `scripts/codegen_out.py`, extract real selectors, paste into `config.plaud.playwright.selectors` block of the client's config template. Selector defaults in the template are conservative placeholders — verify them or the production runner will fail with `selector_missing`.
+
+2. **On the client machine** (Ben's, via TeamViewer):
+   ```powershell
+   cd %LOCALAPPDATA%\plaud-meetings-digest
+   .\scripts\playwright_setup.ps1
+   # Browser opens. Ben logs into his Plaud account.
+   # Close the browser when his files list is visible. Session is saved.
+   ```
+   This installs Playwright (~150MB Chromium download — may hit enterprise proxy; see `feature/install-behind-a-firewall` if so) and saves Ben's Plaud session cookies to `%LOCALAPPDATA%\plaud-meetings-digest\.playwright-profile\`.
+
+3. **Flip the config:**
+   - Edit `~\.claude\skills\meetings-digest\config.json`
+   - Set `plaud.method = "auto"` (Playwright primary with MCP fallback)
+   - Paste the verified selectors from step 1 into `plaud.playwright.selectors` (overrides defaults)
+   - Save
+
+4. **Verify session is alive:**
+   ```powershell
+   .\scripts\playwright_setup.ps1 -Verify
+   ```
+   Expect `✓ Session is alive`. If `Session expired`, run `playwright_setup.ps1 -ReAuth`.
+
+5. **Watch the first scheduled run.** Monday 11 AM lunch is the first opportunity. Logs at `%LOCALAPPDATA%\plaud-meetings-digest\logs\plaud-playwright.log`. Per-meeting JSONL rows now carry `fetch_source: "playwright"` (success) or `"mcp"` (fallback). Compare a fresh meeting's docx to the prior week's MCP-only output — depth should be visibly richer (multi-section narrative vs simple recap).
+
+**Re-auth cadence:** Plaud session cookies typically last 30-90 days. When they expire, the runner heartbeats a `session_expired` (exit code 4) event to Healthchecks. Operator gets an alert, TeamViewer in, run `playwright_setup.ps1 -ReAuth`, profile refreshes.
+
+**Throttle defaults** (in `config.plaud.playwright.throttle`):
+- 8-15 s between navigations
+- 3-7 s between clicks
+- 20 meetings max per run
+- 5/15/30 min exponential backoff on 429
+
+**Selector update procedure when Plaud changes their UI:**
+1. Logs show `selector_missing` (exit code 5) on the runner.
+2. Re-run `-CodegenMode` on dev machine, extract new selectors.
+3. Push updated selectors to client config via TeamViewer (or commit to client.config.yaml if managed).
+4. No bundle re-deploy needed — selectors are config, not code.
+
 ---
 
 ## Train the client (5 minutes)

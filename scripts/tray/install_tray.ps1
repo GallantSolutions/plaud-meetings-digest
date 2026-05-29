@@ -103,10 +103,18 @@ if (-not (Test-Path $pythonwExe)) {
 }
 
 # 2. Install Python deps
+# --no-warn-script-location suppresses pip's "script X installed in DIR which is not on PATH"
+# warning. With $ErrorActionPreference='Stop' set above, that warning to stderr gets raised
+# as a terminating NativeCommandError even though pip itself succeeded — so the install would
+# halt mid-step. try/catch + explicit $LASTEXITCODE check is the durable pattern.
 Write-Step "Installing Python deps (pywebview, pystray, Pillow, watchdog)..."
-& $pythonExe -m pip install --upgrade --quiet pywebview pystray Pillow watchdog 2>&1 | Out-Null
+try {
+    & $pythonExe -m pip install --upgrade --quiet --no-warn-script-location pywebview pystray Pillow watchdog 2>&1 | Out-Null
+} catch {
+    # Swallow stderr-as-error from pip warnings; pip's actual success/failure is on $LASTEXITCODE
+}
 if ($LASTEXITCODE -ne 0) {
-    Write-Warn "pip install failed. See output above. Tray install aborted."
+    Write-Warn "pip install failed (exit $LASTEXITCODE). See output above. Tray install aborted."
     exit 1
 }
 
@@ -141,7 +149,7 @@ $lnk.Arguments  = "-m scripts.tray.tray"
 $lnk.WorkingDirectory = $TrayInstallRoot
 $lnk.IconLocation = (Join-Path $TrayScriptsDir 'tray\assets\kingsway-logo.png')
 $lnk.WindowStyle = 7  # minimized — no flash on launch
-$lnk.Description = "Plaud — This week (Kingsway action items)"
+$lnk.Description = "Plaud - This week (Kingsway action items)"
 $lnk.Save()
 
 # 5. State directory

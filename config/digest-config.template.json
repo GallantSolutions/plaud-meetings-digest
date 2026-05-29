@@ -1,10 +1,48 @@
 {
-  "version": "2.4.1",
+  "version": "2.5.0",
   "installed_at": null,
   "platform": null,
   "claude_models": {
     "meetings-digest": { "model": "claude-sonnet-4-6", "fallback": "claude-sonnet-4-6" },
     "weekly-rollup":   { "model": "claude-opus-4-7",   "fallback": "claude-sonnet-4-6" }
+  },
+  "plaud": {
+    "method": "mcp_only",
+    "_method_help": "mcp_only = current behavior (Plaud MCP get_note); auto = Playwright primary with MCP fallback; playwright_only = Playwright with no fallback (not recommended for clients). Flip to auto AFTER running playwright_setup.ps1 and verifying selectors against current Plaud UI.",
+    "playwright": {
+      "behavior": {
+        "headless": true,
+        "viewport_width": 1280,
+        "viewport_height": 800,
+        "preferred_export_format": "md"
+      },
+      "throttle": {
+        "navigation_min_s": 8,
+        "navigation_max_s": 15,
+        "click_min_s": 3,
+        "click_max_s": 7,
+        "micro_min_s": 1,
+        "micro_max_s": 3,
+        "page_load_timeout_s": 30,
+        "action_timeout_s": 15,
+        "max_meetings_per_run": 20,
+        "rate_limit_backoff_s": [300, 900, 1800]
+      },
+      "selectors": {
+        "_help": "Defaults are placeholders. Verify against current Plaud UI via: scripts/playwright_setup.ps1 -CodegenMode",
+        "login_url": "https://web.plaud.ai/",
+        "files_url": "https://web.plaud.ai/files",
+        "logged_in_probe": "[data-testid='user-menu']",
+        "file_row": "[data-testid='file-row']",
+        "file_id_attr": "data-file-id",
+        "file_title_in_row": "[data-testid='file-title']",
+        "file_recorded_at_in_row": "[data-testid='file-recorded-at']",
+        "file_detail_loaded_probe": "[data-testid='file-detail']",
+        "export_button": "button:has-text('Export')",
+        "export_format_md": "text='Markdown'",
+        "export_format_docx": "text='Word'"
+      }
+    }
   },
   "gallant_heartbeat": {
     "enabled": false,

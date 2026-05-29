@@ -38,9 +38,15 @@ try:
 except ImportError:
     raise SystemExit("watchdog not installed. Run: python3 -m pip install watchdog")
 
-import webview
+if sys.platform == "win32":
+    # Windows: Tk widget (pywebview + pystray can't share the main thread
+    # on Windows — WebView2 COM init blocks Shell_NotifyIcon registration).
+    from . import widget_tk as widget_mod  # type: ignore[no-redef]
+else:
+    # macOS / Linux: pywebview widget renders the HTML UI fine.
+    import webview  # noqa: F401  (re-imported below for mainloop access)
+    from . import widget as widget_mod  # type: ignore[no-redef]
 
-from . import widget as widget_mod
 from .config import load_config, resolve_onedrive_base
 
 
@@ -259,13 +265,19 @@ def _on_open_folder(icon: pystray.Icon, item) -> None:
 
 def _on_quit(icon: pystray.Icon, item) -> None:
     icon.stop()
-    # webview.start() is blocking; killing the icon thread doesn't stop it.
-    # Destroy the window if present, then exit.
-    if widget_mod._window is not None:
-        try:
-            widget_mod._window.destroy()
-        except Exception:
-            pass
+    # The UI mainloop (webview.start or Tk.mainloop) blocks the main thread.
+    # Killing the icon thread doesn't stop it — we need to stop the mainloop.
+    try:
+        if sys.platform == "win32":
+            # Tk: schedule root.quit() on the Tk thread
+            if getattr(widget_mod, "_root", None) is not None:
+                widget_mod._root.after(0, widget_mod._root.quit)
+        else:
+            # pywebview: destroy the window
+            if getattr(widget_mod, "_window", None) is not None:
+                widget_mod._window.destroy()
+    except Exception:
+        pass
     sys.exit(0)
 
 
@@ -291,25 +303,38 @@ def main() -> None:
     # Watcher (background thread)
     start_watcher(onedrive_base)
 
-    # Tray icon (background thread — pystray runs in its own loop)
+    # Build the tray icon up front
     global _icon
     _icon = build_tray_icon()
 
-    def tray_thread() -> None:
-        # Pystray's run() is blocking. Run in a daemon thread so the
-        # webview event loop (which MUST run on the main thread) is free.
-        try:
-            _icon.run(setup=lambda _icn: refresh_badge())
-        except Exception:
-            pass
-
-    t = threading.Thread(target=tray_thread, name="tray", daemon=True)
-    t.start()
-
-    # pywebview window must be created + started on the main thread on macOS.
-    # We keep the window hidden initially; tray click reveals it.
+    # Create the widget window (hidden initially — tray click reveals it)
     widget_mod.create_window()
-    webview.start()  # blocks
+
+    if sys.platform == "win32":
+        # Windows: Tk widget. Tkinter mainloop on main thread, pystray on
+        # daemon. (Pywebview is not used on Windows — its WebView2 COM init
+        # blocks pystray's Shell_NotifyIcon registration on the main thread,
+        # and pywebview refuses to run on a non-main thread.)
+        def tray_thread() -> None:
+            try:
+                _icon.run(setup=lambda _icn: refresh_badge())
+            except Exception:
+                pass
+        t = threading.Thread(target=tray_thread, name="tray", daemon=True)
+        t.start()
+        widget_mod.run_mainloop()  # blocks main thread (Tk mainloop)
+    else:
+        # macOS / Linux: pywebview widget. webview.start() on main thread,
+        # pystray as daemon.
+        def tray_thread() -> None:
+            try:
+                _icon.run(setup=lambda _icn: refresh_badge())
+            except Exception:
+                pass
+        t = threading.Thread(target=tray_thread, name="tray", daemon=True)
+        t.start()
+        import webview as _webview
+        _webview.start()  # blocks main thread
 
 
 if __name__ == "__main__":

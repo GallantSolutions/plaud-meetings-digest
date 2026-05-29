@@ -256,6 +256,14 @@ if (Test-Path $liveScripts) {
     Log "Updated Python helpers + subpackages in $liveScripts"
 }
 
+# v2.5.0 note: playwright_setup.ps1 + plaud_playwright.py + plaud_playwright_runner.py
+# all propagate cleanly via the v2.4.1 logic above — flat .py via the *.py filter,
+# .ps1 via the top-level bundle replacement at line 198. No Playwright-specific
+# auto-update logic needed: the runner self-checks session validity per scheduled
+# fire, falls back to MCP on failure, heartbeats expired-session events to the
+# operator. Auto-update does NOT touch the persistent profile at .playwright-profile/
+# (excluded by virtue of not being in the release zip).
+
 # v2.4.1: also (re)run install_tray.ps1 if the bundle ships one. install_tray.ps1
 # is idempotent — re-running upgrades deps + refreshes the Startup shortcut + only
 # launches the tray if it isn't already running. Wrapped in try/catch so a tray

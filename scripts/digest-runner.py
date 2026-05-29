@@ -94,6 +94,55 @@ def main() -> int:
 
     log(f"Destination: {config.get('destination', {}).get('type', 'unknown')}")
 
+    # ----------------------------------------------------------------------
+    # v2.5.0 — Playwright pre-fetch (opt-in via config.plaud.method).
+    # Only fires for meetings-digest source runs (lunch/eod), never for
+    # weekly-rollup (rollup synthesizes from already-staged content).
+    # ----------------------------------------------------------------------
+    plaud_method = (config.get("plaud") or {}).get("method", "mcp_only")
+    runs_digest = "meetings-digest" in skills
+    if plaud_method != "mcp_only" and runs_digest:
+        runner_script = Path(__file__).resolve().parent / "plaud_playwright_runner.py"
+        if runner_script.exists():
+            log(f"--- plaud_playwright_runner (method={plaud_method}, source={args.source}) ---")
+            try:
+                pw_result = subprocess.run(
+                    [sys.executable, str(runner_script),
+                     "--source", args.source,
+                     "--config", str(CONFIG_PATH)],
+                    capture_output=True,
+                    text=True,
+                    timeout=600,  # 10-min ceiling for Playwright fetch
+                    env={**os.environ, "TERM": "dumb"},
+                )
+                if pw_result.stdout:
+                    log(pw_result.stdout[-3000:])
+                if pw_result.stderr:
+                    log(f"playwright stderr: {pw_result.stderr[-1500:]}")
+                # Exit-code map (see plaud_playwright_runner.py):
+                #   0=ok, 2=disabled, 3=unavailable, 4=session_expired,
+                #   5=selector_missing, 6=rate_limited, 9=error
+                if pw_result.returncode == 0:
+                    log("playwright_runner: ok (staging populated)")
+                elif pw_result.returncode == 2:
+                    log("playwright_runner: disabled (mcp_only)")
+                elif pw_result.returncode == 3:
+                    log("playwright_runner: unavailable — Claude/MCP will handle this run")
+                elif pw_result.returncode == 4:
+                    log("playwright_runner: SESSION EXPIRED — run playwright_setup.ps1 -ReAuth")
+                elif pw_result.returncode == 5:
+                    log("playwright_runner: SELECTOR MISMATCH — Plaud UI may have changed; re-codegen")
+                elif pw_result.returncode == 6:
+                    log("playwright_runner: rate-limited — falling back to MCP for this run")
+                else:
+                    log(f"playwright_runner: unexpected exit {pw_result.returncode} — falling back to MCP")
+            except subprocess.TimeoutExpired:
+                log("playwright_runner: TIMED OUT after 10 minutes — falling back to MCP for this run")
+            except Exception as e:
+                log(f"playwright_runner: invocation failed: {e} — falling back to MCP")
+        else:
+            log(f"plaud.method={plaud_method} but {runner_script.name} missing on disk; skipping")
+
     claude = shutil.which("claude")
     if not claude:
         # Common install paths if `which` didn't find it.

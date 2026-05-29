@@ -421,6 +421,24 @@ echo "$BUNDLE_VERSION" > "$BUNDLE_PREFIX/version.txt"
 ok "Bundle version stamped: $BUNDLE_VERSION -> $BUNDLE_PREFIX/version.txt"
 
 # ============================================================================
+# Step 6d — Playwright readiness (v2.5.0)
+# ============================================================================
+# Infrastructure-only ship. Default config has plaud.method = "mcp_only" so the
+# install behavior is unchanged. To enable Plaud's Export-tier Summary fetch:
+#   1. pip3 install playwright && python3 -m playwright install chromium
+#   2. python3 scripts/plaud_playwright.py --check-session   # interactive auth on first run
+#   3. Edit ~/.claude/skills/meetings-digest/config.json — set plaud.method = "auto"
+# (Mac doesn't ship playwright_setup.ps1 — Garrett uses the kit interactively via
+# `playwright codegen https://web.plaud.ai/` for selector verification on his own
+# Plaud account. Once selectors verify, ship the config flip to clients.)
+PW_RUNNER="$SCRIPTS_SRC/plaud_playwright_runner.py"
+if [[ -f "$PW_RUNNER" ]]; then
+  ok "Playwright runner at $PW_RUNNER (disabled by default — set plaud.method = \"auto\" to enable)"
+else
+  echo "  ⚠ plaud_playwright_runner.py missing — Playwright upgrade path unavailable"
+fi
+
+# ============================================================================
 # Step 7 — Schedule (lunch + EOD + Friday rollup)
 # ============================================================================
 printf "\n"

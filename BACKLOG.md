@@ -2,6 +2,36 @@
 
 Polish items + bug fixes discovered after release but not blocking daily use. Move items to a release once they're scoped + targeted.
 
+## v2.5.0 — Plaud Web Export via Playwright (SHIPPED 2026-05-29)
+
+**Why:** Plaud MCP's `get_note` returns the basic transcript+summary tier. Plaud's web **Export** button runs an additional analytical AI pass that produces multi-section narrative + structured financial-callouts (see Kingsway RTO meeting comparison: our `KPM.RTO Strategic Discussion (John, Stephen, Rich).pdf` vs Plaud's native `05-26 Strategic Discussion on a Potential RTO for Kingsway Pharmaceuticals-Summary.pdf` — Plaud's was 5 pages of analytical depth; ours was 2 pages of recap). This release adds a Playwright fetch path that pulls Plaud's rich Export-tier Summary directly. Infrastructure-only — default config (`plaud.method = "mcp_only"`) is identical to v2.4.1 behavior; operator opts in via config flip after running `playwright_setup.ps1` and verifying selectors against current Plaud UI.
+
+**Architecture:** Playwright runs as a pre-step in `digest-runner.py`, BEFORE Claude Code is invoked. `plaud_playwright_runner.py` populates a `.playwright-staging/` folder with downloaded files + manifest. The `meetings-digest` skill reads the staging folder FIRST (Step 0); only falls through to MCP `get_note()` for meetings not staged. Per-meeting fetch source logged as `fetch_source: "playwright" | "mcp"` so operator can monitor staging-path coverage.
+
+**TOS posture:** Plaud's published Terms of Service contains zero clauses about scraping, automation, browser automation, or programmatic access (verified 2026-05-29 at plaud.ai/policies/terms-of-service, last updated 2025-11-14). Plaud's developer docs publish a sanctioned MCP surface; Playwright sits in the gray zone between "explicitly allowed" and "explicitly prohibited" — closer to allowed. Broad termination discretion ("for any justifiable reason whatsoever") is the real risk, not a clause violation.
+
+- [x] **`scripts/plaud_playwright.py`** — async Playwright client. `ensure_session()`, `list_new_meetings()`, `export_meeting()`. Persistent profile at `%LOCALAPPDATA%\plaud-meetings-digest\.playwright-profile\`. Lockfile prevents concurrent runs. Externalized selectors so UI changes don't require redeploy. Headless by default, headed for codegen mode.
+- [x] **`scripts/plaud_playwright_runner.py`** — standalone Python entrypoint called from `digest-runner.py`. Reads processed file IDs from action-items.jsonl, fetches new ones, writes manifest. Heartbeat-aware (pings Healthchecks per source). Exit codes: 0=ok, 2=disabled, 3=unavailable, 4=session_expired, 5=selector_missing, 6=rate_limited, 9=error.
+- [x] **`scripts/playwright_setup.ps1`** — operator one-time setup. Installs playwright pip + Chromium (~150MB), launches headed browser for interactive Plaud login, saves session to persistent profile. Modes: `-ReAuth` (refresh expired session), `-CodegenMode` (selector dev), `-Verify` (headless session probe), `-Quiet`.
+- [x] **`scripts/digest-runner.py`** — pre-Claude Playwright hook. Invokes runner only when `config.plaud.method != "mcp_only"`. 10-min timeout cap. Fall-through logging surfaces exit-code interpretation for operator. Never blocks Claude Code path — runner failure just means MCP fallback for that run.
+- [x] **`skills/meetings-digest/SKILL.md`** — Step 0 added: check `.playwright-staging/_manifest.json` first; if results present + no error, use staged content as `plaud_note_markdown` (replaces MCP `get_note` for those meetings). Otherwise fall through to existing MCP path. Per-meeting `fetch_source` field added to JSONL row.
+- [x] **`config/digest-config.template.json`** — `plaud` block added: `method` (`mcp_only` | `auto` | `playwright_only`, default `mcp_only`), full `playwright.behavior` + `playwright.throttle` + `playwright.selectors` blocks. All values documented in inline `_help` strings.
+- [x] **Throttle defaults** — 8-15s navigation, 3-7s click, 1-3s micro, 20-meeting cap per run, 429 backoff at 5min/15min/30min. All tunable in config. No stealth tricks (canvas spoofing, navigator.webdriver patching) — those increase detection surface.
+- [x] **`install.ps1`** — banner bumped to v2.5.0, Step 5d added (Playwright readiness check). Does NOT auto-fire `playwright_setup.ps1` — operator opts in.
+- [x] **`install.sh`** — Step 6d added (Mac note about Playwright readiness). Mac users invoke setup interactively (Garrett's dev machine path).
+- [x] **`scripts/auto-update.ps1`** — verified: v2.4.1 logic already propagates new files (top-level `.py` for plaud_playwright*.py, full bundle replacement for playwright_setup.ps1). Persistent profile at `.playwright-profile/` is preserved across updates (not in release zip).
+- [ ] **Real-machine selector verification** — defaults in config are placeholders based on common SaaS conventions (`data-testid` patterns, button text). First production run requires Garrett to verify against current Plaud UI via `playwright_setup.ps1 -CodegenMode` on his Mac.
+- [ ] **Production rollout to Ben** — after Garrett's Mac verification:
+  1. Update Ben's config: `plaud.method = "auto"` + paste verified selectors
+  2. Run `playwright_setup.ps1` on Ben's machine via TeamViewer (interactive Plaud login)
+  3. Watch Monday morning lunch run for first staging-path success
+  4. Compare output depth vs prior week's MCP-only output
+
+**Validation order before tagging:**
+- [ ] Sub-agent code audit in fresh context (validation-by-sub-agent discipline)
+- [ ] `/validate-build` sandbox dry-run (Mac path)
+- [ ] `/validate-build --windows` (workflow_dispatch on main, 4-5 min)
+
 ## v2.4.1 — auto-update tray propagation + install hardening (SHIPPED 2026-05-28)
 
 Same-day patch following v2.4.0. Surfaced during post-ship audit when the user asked "will tonight's auto-update reinstall the tray app + are my action items safe?" Three real gaps surfaced:

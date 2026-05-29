@@ -51,9 +51,23 @@ The Friday 4:00 PM run is chained: this skill fires first; the [[weekly-rollup]]
 
 ## Pull recordings
 
+### Step 0 — Check Playwright staging folder (v2.5.0+)
+
+Before calling MCP `list_files`, check whether `plaud_playwright_runner.py` already populated the staging folder this run.
+
+**Path** — Windows: `%LOCALAPPDATA%\plaud-meetings-digest\.playwright-staging\_manifest.json`. Mac: `~/Library/Application Support/plaud-meetings-digest/.playwright-staging/_manifest.json`.
+
+**If the manifest exists and `manifest.error` is null AND `manifest.results` is non-empty:** Plaud's rich Export-tier Summary has been pre-fetched for each listed `file_id`. For each result, read its `staging_path` file (markdown or .docx) — this content REPLACES the MCP `get_note()` call entirely. Treat the staged content as `plaud_note_markdown` for the downstream write step.
+
+**If the manifest is missing, has an error, or has an empty results list:** fall through to the MCP path described below. The skill must remain MCP-compatible — the staging folder is the preferred fetch surface, not the only one. Log which path was taken per meeting.
+
+After processing each staged file, delete it from the staging folder (or move to `_consumed/`) so a re-run doesn't double-process. The runner clears the folder at the start of each run anyway.
+
+### Step 1 — MCP path (default for clients on `plaud.method = "mcp_only"`, fallback for `auto`)
+
 Call `list_files` with the resolved date range. Filter to recordings only. Sort chronologically.
 
-**Apply dedup filter.** Remove any recording whose `file_id` is in the dedup state — unless `--force`. If everything is deduped out, exit cleanly with `No new recordings since last run.`
+**Apply dedup filter.** Remove any recording whose `file_id` is in the dedup state — unless `--force`. Skip any `file_id` already handled by the staging step above. If everything is deduped out, exit cleanly with `No new recordings since last run.`
 
 For each remaining recording:
 1. Call `get_transcript` to fetch the first ~30 seconds of transcript (just enough for keyword routing — see "Route by meeting type" below).
@@ -61,6 +75,13 @@ For each remaining recording:
 3. Read recording metadata: title, duration, recorded_at, speakers.
 
 If a recording has no transcript yet (still processing), skip it AND do not mark it processed in dedup state (so next run picks it up once Plaud finishes). Same applies if `get_note` returns empty / not-yet-summarized.
+
+### v2.5.0 fetch-source discipline
+
+- The Playwright-staged path delivers Plaud's Export-tier multi-section analytical Summary (the same artifact Plaud's web Export button produces). It is richer than MCP `get_note` and is preferred when available.
+- The MCP path delivers the basic transcript+summary tier. It's always available as long as Plaud MCP is connected; it's the floor, not the ceiling.
+- The downstream write step (`docx_writer.write_doc`) treats both inputs identically — it just renders `plaud_note_markdown` into a branded Word doc. Nothing downstream changes based on source.
+- Per-meeting logging MUST record which path was used. JSONL row gets a `fetch_source` field: `"playwright"` or `"mcp"`. This is how the operator can later quantify staging-path coverage.
 
 ## Route by meeting type
 

@@ -40,7 +40,32 @@ function Write-Warn { param([string]$Text) Write-Host "⚠ $Text" -ForegroundCol
 function Write-Err  { param([string]$Text) Write-Host "✗ $Text" -ForegroundColor Red }
 
 # ---- Resolve paths --------------------------------------------------------
-$ScriptDir          = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# v2.5.0: Bundle must live at %LOCALAPPDATA%\plaud-meetings-digest so scheduled-task
+# targets, version.txt, and auto-update.ps1 paths stay stable across reboots
+# (Windows can clear %TEMP%, redirected enterprise Downloads folders, etc.). If
+# install.ps1 is running from anywhere else, copy the bundle to canonical first
+# and rebase $ScriptDir so every downstream path derives off the stable location.
+$CanonicalBundlePrefix = Join-Path $env:LOCALAPPDATA 'plaud-meetings-digest'
+if ($ScriptDir -ne $CanonicalBundlePrefix) {
+    Write-Host "→ Copying bundle to canonical location: $CanonicalBundlePrefix" -ForegroundColor Blue
+    $existingLogs = Join-Path $CanonicalBundlePrefix 'logs'
+    $logsBackup = Join-Path $env:TEMP "plaud-logs-backup-$([Guid]::NewGuid())"
+    if (Test-Path $existingLogs) {
+        Move-Item $existingLogs $logsBackup -Force
+    }
+    if (Test-Path $CanonicalBundlePrefix) {
+        Remove-Item $CanonicalBundlePrefix -Recurse -Force
+    }
+    Copy-Item -Path $ScriptDir -Destination $CanonicalBundlePrefix -Recurse -Force
+    if (Test-Path $logsBackup) {
+        Move-Item $logsBackup (Join-Path $CanonicalBundlePrefix 'logs') -Force
+    }
+    $ScriptDir = $CanonicalBundlePrefix
+    Write-Host "✓ Bundle at canonical location. Continuing install from there." -ForegroundColor Green
+}
+
 $SkillMeetingsSrc   = Join-Path $ScriptDir 'skills\meetings-digest'
 $SkillRollupSrc     = Join-Path $ScriptDir 'skills\weekly-rollup'
 $ScriptsSrc         = Join-Path $ScriptDir 'scripts'
@@ -52,7 +77,7 @@ $ScriptsInstall       = Join-Path $SkillMeetingsInstall 'scripts'
 $ConfigInstall        = Join-Path $SkillMeetingsInstall 'config.json'
 $StateDir             = Join-Path $SkillMeetingsInstall 'state'
 
-Write-Header "Plaud Meetings Digest — Windows Installer (v2.4.1)"
+Write-Header "Plaud Meetings Digest — Windows Installer (v2.5.0)"
 
 # ============================================================================
 # Step 1 — Prerequisites
@@ -504,7 +529,8 @@ Write-Ok "Skills installed at $SkillMeetingsInstall and $SkillRollupInstall"
 Write-Ok "Config written to $ConfigInstall"
 
 # ---- Write version stamp (for auto-update version comparison) ------------
-# Bundle prefix is wherever bootstrap landed us — derive from $ScriptDir.
+# $ScriptDir is now always the canonical %LOCALAPPDATA%\plaud-meetings-digest
+# location (rebased at the top of this script if install ran from elsewhere).
 $BundlePrefix = $ScriptDir
 $VersionFile = Join-Path $BundlePrefix 'version.txt'
 # Read version from package.json equivalent — use the config version as the
@@ -536,6 +562,26 @@ if (Test-Path $TrayInstaller) {
     }
 } else {
     Write-Warn "Tray installer not found at $TrayInstaller — skipping tray install."
+}
+
+# ============================================================================
+# Step 5d — Playwright readiness (v2.5.0)
+# ============================================================================
+# Infrastructure-only ship: Playwright is installed lazily on first opt-in
+# (operator runs playwright_setup.ps1 + flips config.plaud.method = "auto").
+# We don't auto-install Chromium during the main install — it's ~150MB and
+# the client doesn't need it until they're ready for the Export-tier upgrade.
+Write-Header "Step 5d — Playwright readiness check"
+
+$PwSetupScript = Join-Path $ScriptsSrc 'playwright_setup.ps1'
+if (Test-Path $PwSetupScript) {
+    Write-Ok "playwright_setup.ps1 available at scripts\playwright_setup.ps1"
+    Write-Host "To enable rich Export-tier Summary fetch (v2.5.0):" -ForegroundColor Cyan
+    Write-Host "  1. Run:    .\scripts\playwright_setup.ps1   (one-time, ~5 min, downloads Chromium)"
+    Write-Host "  2. Edit:   $ConfigInstall — set plaud.method = ""auto"""
+    Write-Host "  3. Verify: .\scripts\playwright_setup.ps1 -Verify"
+} else {
+    Write-Warn "playwright_setup.ps1 missing at $PwSetupScript — Playwright upgrade path unavailable"
 }
 
 # ============================================================================
