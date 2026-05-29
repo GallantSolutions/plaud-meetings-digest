@@ -2,6 +2,23 @@ Write-Host "Bundle version: $(Get-Content "$env:LOCALAPPDATA\plaud-meetings-dige
 Write-Host "Live tray subpackage exists: $(Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\scripts\tray")"
 Write-Host "Bundle tray subpackage exists: $(Test-Path "$env:LOCALAPPDATA\plaud-meetings-digest\scripts\tray")"
 
+Write-Host "USERPROFILE: $env:USERPROFILE"
+Write-Host "LOCALAPPDATA: $env:LOCALAPPDATA"
+Write-Host "APPDATA: $env:APPDATA"
+Write-Host ""
+Write-Host "--- Searching for plaud-meetings-digest ---"
+Get-ChildItem -Path "$env:LOCALAPPDATA" -Filter "plaud*" -ErrorAction SilentlyContinue | Select-Object FullName
+Get-ChildItem -Path "$env:USERPROFILE" -Filter "plaud*" -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object FullName
+Get-ChildItem -Path "$env:USERPROFILE\.claude" -Recurse -Depth 3 -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*plaud*" -or $_.Name -like "*meetings*" } | Select-Object FullName
+Write-Host ""
+Write-Host "--- Scheduled tasks ---"
+Get-ScheduledTask | Where-Object { $_.TaskName -like "*Plaud*" -or $_.TaskName -like "*plaud*" } | Select-Object TaskName, State
+Write-Host ""
+Write-Host "--- Skill config location ---"
+Test-Path "$env:USERPROFILE\.claude\skills\meetings-digest\config.json"
+Get-Content "$env:USERPROFILE\.claude\skills\meetings-digest\config.json" -ErrorAction SilentlyContinue | Select-Object -First 5
+
+
 
 
 # Copy tray/ subpackage from bundle source to the live skill scripts dir
