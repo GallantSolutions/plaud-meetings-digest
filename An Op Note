@@ -1,5 +1,35 @@
 $pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
 & $pyExe -c @"
+import sys
+from pathlib import Path
+
+import pystray
+from PIL import Image
+
+logo_path = Path(r'C:\Users\bblessing\AppData\Local\plaud-tray\scripts\tray\assets\kingsway-logo.png')
+print(f'Logo exists: {logo_path.exists()}')
+print(f'Logo size on disk: {logo_path.stat().st_size if logo_path.exists() else 0} bytes')
+
+if not logo_path.exists():
+    print('FAIL: logo missing - tray installer did not copy assets')
+    sys.exit(1)
+
+img = Image.open(str(logo_path)).convert('RGBA')
+print(f'Logo loaded: {img.size}, mode={img.mode}')
+img = img.resize((256, 256), Image.LANCZOS)
+print(f'Resized to: {img.size}')
+
+icon = pystray.Icon('plaud-logo-test', img, 'Plaud test - logo only', menu=pystray.Menu(pystray.MenuItem('Quit', lambda icn, itm: icn.stop())))
+print('Calling icon.run() - look for the Kingsway logo in tray (or overflow)')
+icon.run()
+"@
+
+
+
+
+
+$pyExe = "C:\Users\bblessing\AppData\Local\Programs\Python\Launcher\py.exe"
+& $pyExe -c @"
 import pystray
 from PIL import Image
 img = Image.new('RGBA', (64, 64), 'red')
