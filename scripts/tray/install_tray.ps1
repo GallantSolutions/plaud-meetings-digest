@@ -1,4 +1,4 @@
-# install_tray.ps1 — Install/uninstall the Plaud tray widget on Windows.
+﻿# install_tray.ps1 - Install/uninstall the Plaud tray widget on Windows.
 #
 # Installs three Python deps (pywebview, pystray, watchdog + Pillow), copies
 # the tray code into the client's plaud install location, and creates a
@@ -29,7 +29,7 @@ function Write-Warn($msg) {
     Write-Host "[plaud-tray] $msg" -ForegroundColor Yellow
 }
 
-# ── Paths ────────────────────────────────────────────────────────────────
+# -- Paths ----------------------------------------------------------------
 
 $TrayInstallRoot = Join-Path $env:LOCALAPPDATA 'plaud-tray'
 $TrayScriptsDir  = Join-Path $TrayInstallRoot 'scripts'
@@ -37,10 +37,10 @@ $StartupDir      = [System.Environment]::GetFolderPath('Startup')
 $ShortcutPath    = Join-Path $StartupDir 'Plaud Tray.lnk'
 $StateDir        = Join-Path $env:APPDATA 'plaud-tray'
 
-# Source files — relative to this script's location
+# Source files - relative to this script's location
 $SourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# ── Uninstall path ───────────────────────────────────────────────────────
+# -- Uninstall path -------------------------------------------------------
 
 if ($Uninstall) {
     Write-Step "Uninstalling tray widget..."
@@ -66,11 +66,11 @@ if ($Uninstall) {
     exit 0
 }
 
-# ── Install path ─────────────────────────────────────────────────────────
+# -- Install path ---------------------------------------------------------
 
 Write-Step "Installing tray widget..."
 
-# 1. Python detection — prefer python.exe in PATH, but check Microsoft Store alias trap
+# 1. Python detection - prefer python.exe in PATH, but check Microsoft Store alias trap
 $python = $null
 try {
     $cmd = Get-Command python -ErrorAction Stop
@@ -97,7 +97,7 @@ Write-Step "Using python at: $python"
 $pythonExe = $python
 $pythonwExe = $python -replace 'python\.exe$', 'pythonw.exe'
 if (-not (Test-Path $pythonwExe)) {
-    # py launcher case — fall back to python.exe with a hidden window flag
+    # py launcher case - fall back to python.exe with a hidden window flag
     $pythonwExe = $pythonExe
     Write-Warn "pythonw.exe not found alongside $pythonExe. Tray will launch with a hidden console (less clean but functional)."
 }
@@ -105,7 +105,7 @@ if (-not (Test-Path $pythonwExe)) {
 # 2. Install Python deps
 # --no-warn-script-location suppresses pip's "script X installed in DIR which is not on PATH"
 # warning. With $ErrorActionPreference='Stop' set above, that warning to stderr gets raised
-# as a terminating NativeCommandError even though pip itself succeeded — so the install would
+# as a terminating NativeCommandError even though pip itself succeeded - so the install would
 # halt mid-step. try/catch + explicit $LASTEXITCODE check is the durable pattern.
 Write-Step "Installing Python deps (pywebview, pystray, Pillow, watchdog)..."
 try {
@@ -130,7 +130,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $TrayScriptsDir 'tray') | O
 $trayExclude = @('preview.html', 'README.md', 'install_tray.ps1', '__pycache__')
 $trayDest = Join-Path $TrayScriptsDir 'tray'
 Copy-Item -Recurse -Force -Path (Join-Path $SourceDir '*') -Destination $trayDest -Exclude $trayExclude
-# -Exclude on Copy-Item only filters the top level — sweep nested __pycache__ too.
+# -Exclude on Copy-Item only filters the top level - sweep nested __pycache__ too.
 Get-ChildItem -Path $trayDest -Recurse -Force -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
 # Copy sibling scripts the tray imports: onedrive_resolve.py
@@ -148,7 +148,7 @@ $lnk.TargetPath = $pythonwExe
 $lnk.Arguments  = "-m scripts.tray.tray"
 $lnk.WorkingDirectory = $TrayInstallRoot
 $lnk.IconLocation = (Join-Path $TrayScriptsDir 'tray\assets\kingsway-logo.png')
-$lnk.WindowStyle = 7  # minimized — no flash on launch
+$lnk.WindowStyle = 7  # minimized - no flash on launch
 $lnk.Description = "Plaud - This week (Kingsway action items)"
 $lnk.Save()
 
@@ -168,7 +168,7 @@ if (-not $alreadyRunning) {
     Write-Step "Launching tray now..."
     Start-Process -FilePath $pythonwExe -ArgumentList "-m","scripts.tray.tray" -WorkingDirectory $TrayInstallRoot -WindowStyle Hidden
 } else {
-    Write-Step "Tray already running — skipping launch. Restart Windows or kill the process to load new code."
+    Write-Step "Tray already running - skipping launch. Restart Windows or kill the process to load new code."
 }
 
 Write-Step "Done."
