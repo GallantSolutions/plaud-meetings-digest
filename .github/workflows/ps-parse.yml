@@ -1,0 +1,62 @@
+name: ps-parse (powershell 5.1 syntax gate)
+
+# ============================================================================
+# Fast real-parser gate for every .ps1 in the bundle.
+#
+# Brace-counting and human/sub-agent review CANNOT prove a PowerShell script
+# parses (see the v2.5.0 preflight.ps1 cp1252/BOM incident — a no-BOM file
+# with non-ASCII glyphs parsed fine to the eye and crashed install.ps1 on a
+# real PS 5.1 host). Only a real parser proves it. This job runs the Windows
+# PowerShell 5.1 (Desktop) AST parser against every .ps1 and fails on any
+# parse error — including scripts the install workflow never exercises
+# (report-state.ps1, update.ps1, uninstall.ps1).
+#
+# Cheap (seconds), so it runs on every push + PR, unlike the heavy
+# install workflow which stays gated to test/** + workflow_dispatch.
+# ============================================================================
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parse:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse every .ps1 under Windows PowerShell 5.1 (Desktop)
+        # shell: powershell == Windows PowerShell 5.1 Desktop on windows-latest
+        # (shell: pwsh would be PowerShell 7 and miss 5.1-specific parse diffs).
+        shell: powershell
+        run: |
+          $failed = @()
+          $files = Get-ChildItem -Path . -Recurse -Filter *.ps1 -File |
+                   Where-Object { $_.FullName -notmatch '\\node_modules\\' }
+          if (-not $files) { Write-Warning "No .ps1 files found"; exit 0 }
+          foreach ($f in $files) {
+            $tokens = $null
+            $errs   = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$tokens, [ref]$errs) | Out-Null
+            if ($errs -and $errs.Count -gt 0) {
+              Write-Host "##[error]PARSE FAILED: $($f.FullName)"
+              foreach ($e in $errs) {
+                Write-Host ("    line {0}: {1}" -f $e.Extent.StartLineNumber, $e.Message)
+              }
+              $failed += $f.FullName
+            } else {
+              Write-Host "OK   $($f.FullName.Substring($PWD.Path.Length).TrimStart('\'))"
+            }
+          }
+          Write-Host ""
+          if ($failed.Count -gt 0) {
+            Write-Host "##[error]$($failed.Count) of $($files.Count) .ps1 file(s) failed to parse under PS 5.1." -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "All $($files.Count) .ps1 files parse clean under Windows PowerShell 5.1." -ForegroundColor Green

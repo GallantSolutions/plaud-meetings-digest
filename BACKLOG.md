@@ -4,7 +4,7 @@ Polish items + bug fixes discovered after release but not blocking daily use. Mo
 
 ## v2.5.0 — outage fixes + auto-update deprecation (IN PROGRESS 2026-06-01)
 
-Diagnosed on bblessing's machine (NFI Consumer Products, Win11 domain) 2026-06-01 — v2.4.1 broke ALL scheduled runs since May 29; zero meetings processed for 4 days. Eight bugs fixed + auto-update deprecated. Full on-machine bug report archived (see commit / `raw/conversations/2026-06-01-plaud-bug-report`).
+Diagnosed on bblessing's machine (NFI Consumer Products, Win11 domain) 2026-06-01 — v2.4.1 broke ALL scheduled runs since May 29; zero meetings processed for 4 days. Eight bugs fixed + auto-update deprecated. Full account: the bug-by-bug breakdown below, plus the auto-update deprecation rationale in Gallant vault ADR-012 (`04_labs/architecture/adr-012-deprecate-auto-update-operator-initiated.md`).
 
 **Bug fixes (all ported into the bundle):**
 - [x] **Bug 1 (critical):** `schedule.ps1` resolved Python via `Get-Command python`, which returns the Microsoft Store WindowsApps alias — unrunnable under Task Scheduler (exits `0x80070001` in ~1s). New `Resolve-PythonExe`: py.exe launcher → per-user install paths → PATH (rejecting the WindowsApps alias).
