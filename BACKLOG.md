@@ -2,6 +2,10 @@
 
 Polish items + bug fixes discovered after release but not blocking daily use. Move items to a release once they're scoped + targeted.
 
+## v2.5.2 — update.ps1 propagates the tray (SHIPPED 2026-06-01)
+
+- [x] **`update.ps1` now refreshes the tray.** After replacing bundle files + re-running `schedule.ps1`, `update.ps1` invokes the freshly-replaced `scripts\tray\install_tray.ps1 -Quiet` (via `powershell.exe -File`, non-fatal try/catch). This restores the tray propagation the old `auto-update.ps1` did and `update.ps1` had dropped — so tray code/fixes now reach the live install through a normal update instead of requiring a full reinstall. Closes the gap tracked under v2.5.1. **Operational impact:** converging a field machine to a tray fix is now a one-command `update.ps1` instead of a full bootstrap reinstall.
+
 ## v2.5.1 — tray parse fix + field diagnostic + PS parse-gate (SHIPPED 2026-06-01)
 
 Follow-on to v2.5.0, same day. Three changes, all CI-verified (ps-parse + test-install green on windows-latest):
@@ -12,7 +16,7 @@ Follow-on to v2.5.0, same day. Three changes, all CI-verified (ps-parse + test-i
 
 **Still deferred to a later patch (unchanged from v2.5.0 list below):** at-launch update-check hint; re-pin stale `claude-opus-4-7` model id; install.ps1 Claude-installer exit-code gap; install.ps1 ~L221 comment still references `auto-update.ps1`.
 
-- [ ] **`update.ps1` does not propagate the tray (regression vs old auto-update.ps1).** `update.ps1` excludes `install_tray.ps1` from its file copy (line ~164) and never re-runs the tray install, so it cannot deliver tray code/fixes — pulling v2.5.1 via `update.ps1` would NOT plant the fixed tray. The v2.4.1 `auto-update.ps1` handled this by copying the `tray/` subpackage AND invoking `install_tray.ps1` after file replacement; `update.ps1` dropped that. Fix: after pulling, copy `scripts/tray/` and invoke `install_tray.ps1` (wrapped in try/catch so a tray failure doesn't break the update). Until then, tray fixes must be delivered by running `install_tray.ps1` directly or a full reinstall.
+- [x] **(DONE in v2.5.2) `update.ps1` does not propagate the tray (regression vs old auto-update.ps1).** `update.ps1` excludes `install_tray.ps1` from its file copy (line ~164) and never re-runs the tray install, so it cannot deliver tray code/fixes — pulling v2.5.1 via `update.ps1` would NOT plant the fixed tray. The v2.4.1 `auto-update.ps1` handled this by copying the `tray/` subpackage AND invoking `install_tray.ps1` after file replacement; `update.ps1` dropped that. Fix: after pulling, copy `scripts/tray/` and invoke `install_tray.ps1` (wrapped in try/catch so a tray failure doesn't break the update). Until then, tray fixes must be delivered by running `install_tray.ps1` directly or a full reinstall.
 
 ## v2.5.0 — outage fixes + auto-update deprecation (SHIPPED 2026-06-01)
 

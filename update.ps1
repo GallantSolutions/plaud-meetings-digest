@@ -17,8 +17,9 @@
 #   3. Downloads + extracts the release zip, replaces bundle files
 #      (preserves config.json + dedup state + logs)
 #   4. Pushes updated SKILL.md + scripts into the live ~/.claude install
-#   5. Re-runs schedule.ps1 to refresh the Scheduled Tasks
-#   6. Stamps version.txt (BOM-less)
+#   5. Stamps version.txt (BOM-less)
+#   6. Re-runs schedule.ps1 to refresh the Scheduled Tasks
+#   7. Re-runs install_tray.ps1 to refresh the tray widget (so tray fixes land)
 # ============================================================================
 
 #Requires -Version 5.1
@@ -186,6 +187,24 @@ if (Test-Path $ScheduleScript) {
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $ScheduleScript -ConfigPath $ConfigPath
         if ($LASTEXITCODE -ne 0) { Log "WARN: schedule.ps1 exited $LASTEXITCODE — tasks may need manual re-registration" }
     } catch { Log "WARN: schedule.ps1 invocation failed: $($_.Exception.Message)" }
+}
+
+# ---- Refresh the tray widget (install_tray.ps1 was updated) --------------
+# update.ps1 historically skipped this, so tray code/fixes never reached the
+# live install: the tray lives at %LOCALAPPDATA%\plaud-tray and is planted by
+# install_tray.ps1, NOT by the script copy above (which excludes it). Re-run
+# the freshly-replaced installer so tray fixes actually land. Non-fatal: the
+# digest pipeline works without the tray; the operator just loses the tray UI.
+$TrayInstaller = Join-Path $BundlePrefix 'scripts\tray\install_tray.ps1'
+if (Test-Path $TrayInstaller) {
+    Log "Refreshing tray widget via install_tray.ps1"
+    try {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $TrayInstaller -Quiet
+        if ($LASTEXITCODE -eq 0) { Log "Tray widget refreshed" }
+        else { Log "WARN: install_tray.ps1 exited $LASTEXITCODE - re-run scripts\tray\install_tray.ps1 manually" }
+    } catch { Log "WARN: tray refresh failed: $($_.Exception.Message)" }
+} else {
+    Log "WARN: tray installer not found at $TrayInstaller - skipping tray refresh"
 }
 
 # ---- Cleanup -------------------------------------------------------------
