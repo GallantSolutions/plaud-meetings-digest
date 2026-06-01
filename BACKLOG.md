@@ -2,7 +2,17 @@
 
 Polish items + bug fixes discovered after release but not blocking daily use. Move items to a release once they're scoped + targeted.
 
-## v2.5.0 — outage fixes + auto-update deprecation (IN PROGRESS 2026-06-01)
+## v2.5.1 — tray parse fix + field diagnostic + PS parse-gate (SHIPPED 2026-06-01)
+
+Follow-on to v2.5.0, same day. Three changes, all CI-verified (ps-parse + test-install green on windows-latest):
+
+- [x] **`install_tray.ps1` PS 5.1 parse failure (real bug — likely the "tray never appears" root cause).** The file had no UTF-8 BOM but contained em-dashes (e.g. the "Tray already running - skipping launch" Write-Step string) + box-drawing comment separators. PS 5.1 reads a no-BOM file as cp1252, so the em-dash's multi-byte UTF-8 decoded to bytes that broke the string ("string is missing the terminator" at line 180, cascading from the unterminated string) → the script failed to parse → the tray widget never installed. The v2.4.2 "replace em-dashes" pass fixed only the line-144 Description string and missed the rest. Fix: transliterate all non-ASCII to ASCII (immune regardless of BOM survival) + add a UTF-8 BOM. This is the likely root cause of the persistent "tray app is still not there" symptom on the field machine.
+- [x] **`scripts/report-state.ps1` — read-only field-state reporter** (post-install companion to `preflight.ps1`). Captures version + per-file SHA256 across both install copies + scheduler health + redacted config + log tail as a paste-able summary, plus a zip of the real build files. Secrets force-redacted before leaving the box. Lets the operator reconcile a live client install against the canonical tag.
+- [x] **`.github/workflows/ps-parse.yml` — PS 5.1 real-parser CI gate.** Tokenizes every `.ps1` via `[System.Management.Automation.Language.Parser]::ParseFile` under `shell: powershell` (5.1 Desktop) on every push. Brace-counting / sub-agent review can't prove a script parses; only a real parser can. Caught the `install_tray.ps1` bug above on its first run — a bug that survived two releases. Covers scripts the install workflow never exercises (report-state, update, uninstall).
+
+**Still deferred to a later patch (unchanged from v2.5.0 list below):** at-launch update-check hint; re-pin stale `claude-opus-4-7` model id; install.ps1 Claude-installer exit-code gap; install.ps1 ~L221 comment still references `auto-update.ps1`.
+
+## v2.5.0 — outage fixes + auto-update deprecation (SHIPPED 2026-06-01)
 
 Diagnosed on bblessing's machine (NFI Consumer Products, Win11 domain) 2026-06-01 — v2.4.1 broke ALL scheduled runs since May 29; zero meetings processed for 4 days. Eight bugs fixed + auto-update deprecated. Full account: the bug-by-bug breakdown below, plus the auto-update deprecation rationale in Gallant vault ADR-012 (`04_labs/architecture/adr-012-deprecate-auto-update-operator-initiated.md`).
 
