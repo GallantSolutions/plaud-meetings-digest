@@ -12,6 +12,8 @@ Follow-on to v2.5.0, same day. Three changes, all CI-verified (ps-parse + test-i
 
 **Still deferred to a later patch (unchanged from v2.5.0 list below):** at-launch update-check hint; re-pin stale `claude-opus-4-7` model id; install.ps1 Claude-installer exit-code gap; install.ps1 ~L221 comment still references `auto-update.ps1`.
 
+- [ ] **`update.ps1` does not propagate the tray (regression vs old auto-update.ps1).** `update.ps1` excludes `install_tray.ps1` from its file copy (line ~164) and never re-runs the tray install, so it cannot deliver tray code/fixes — pulling v2.5.1 via `update.ps1` would NOT plant the fixed tray. The v2.4.1 `auto-update.ps1` handled this by copying the `tray/` subpackage AND invoking `install_tray.ps1` after file replacement; `update.ps1` dropped that. Fix: after pulling, copy `scripts/tray/` and invoke `install_tray.ps1` (wrapped in try/catch so a tray failure doesn't break the update). Until then, tray fixes must be delivered by running `install_tray.ps1` directly or a full reinstall.
+
 ## v2.5.0 — outage fixes + auto-update deprecation (SHIPPED 2026-06-01)
 
 Diagnosed on bblessing's machine (NFI Consumer Products, Win11 domain) 2026-06-01 — v2.4.1 broke ALL scheduled runs since May 29; zero meetings processed for 4 days. Eight bugs fixed + auto-update deprecated. Full account: the bug-by-bug breakdown below, plus the auto-update deprecation rationale in Gallant vault ADR-012 (`04_labs/architecture/adr-012-deprecate-auto-update-operator-initiated.md`).
