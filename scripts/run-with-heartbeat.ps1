@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # run-with-heartbeat.ps1 — Gallant standard heartbeat wrapper (Windows)
 # ============================================================================
 # Wraps any command, pings Healthchecks.io before/after the wrapped run.

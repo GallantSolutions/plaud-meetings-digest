@@ -73,7 +73,8 @@ jobs:
         id: tasks_check
         shell: pwsh
         run: |
-          $expected = @('PlaudMeetingsDigest_Lunch', 'PlaudMeetingsDigest_EOD', 'PlaudMeetingsDigest_Rollup', 'PlaudMeetingsDigest_AutoUpdate')
+          # Auto-update task deprecated in v2.5.0 (ADR-012) — three runtime tasks expected.
+          $expected = @('PlaudMeetingsDigest_Lunch', 'PlaudMeetingsDigest_EOD', 'PlaudMeetingsDigest_Rollup')
           $found = Get-ScheduledTask | Where-Object { $_.TaskName -in $expected } | Select-Object -ExpandProperty TaskName
           Write-Host "Expected: $($expected -join ', ')"
           Write-Host "Found: $($found -join ', ')"
@@ -134,7 +135,7 @@ jobs:
           $obj = [PSCustomObject]@{
             runner                          = $env:RUNNER_OS
             powershell                      = $PSVersionTable.PSVersion.ToString()
-            scheduled_tasks_expected        = @('PlaudMeetingsDigest_Lunch','PlaudMeetingsDigest_EOD','PlaudMeetingsDigest_Rollup','PlaudMeetingsDigest_AutoUpdate')
+            scheduled_tasks_expected        = @('PlaudMeetingsDigest_Lunch','PlaudMeetingsDigest_EOD','PlaudMeetingsDigest_Rollup')
             scheduled_tasks_registered      = $tasksFound.Split(',') | Where-Object { $_ -ne '' }
             scheduled_tasks_missing         = $tasksMissing.Split(',') | Where-Object { $_ -ne '' }
             skills_installed                = $skills.Split(',') | Where-Object { $_ -ne '' }
