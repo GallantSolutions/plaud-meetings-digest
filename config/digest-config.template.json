@@ -1,5 +1,5 @@
 {
-  "version": "2.4.3",
+  "version": "2.5.0",
   "installed_at": null,
   "platform": null,
   "claude_models": {
@@ -12,15 +12,16 @@
     "checks": {
       "lunch": null,
       "eod": null,
-      "rollup": null,
-      "auto_update": null
+      "rollup": null
     }
   },
   "gallant_auto_update": {
-    "enabled": true,
+    "enabled": false,
+    "deprecated": true,
+    "deprecated_at": "2026-06-01",
+    "note": "DEPRECATED in v2.5.0 — the nightly self-update task fired unreliably on domain-locked machines (3 AM, asleep/locked) and a broken release had no remediation path. Updates are now operator-initiated: run update.ps1. `repo` is retained so update.ps1 + the at-launch update-check know where to pull.",
     "repo": "GallantSolutions/plaud-meetings-digest",
     "channel": "latest",
-    "schedule": { "hour": 3, "minute": 0 },
     "pinned_version": null
   },
   "destination": {

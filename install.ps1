@@ -43,7 +43,7 @@ function Write-Err  { param([string]$Text) Write-Host "✗ $Text" -ForegroundCol
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 # v2.4.2: Bundle must live at %LOCALAPPDATA%\plaud-meetings-digest so scheduled-task
-# targets, version.txt, and auto-update.ps1 paths stay stable across reboots
+# targets and version.txt paths stay stable across reboots
 # (Windows can clear %TEMP%, redirected enterprise Downloads folders, etc.). If
 # install.ps1 is running from anywhere else, copy the bundle to canonical first
 # and rebase $ScriptDir so every downstream path derives off the stable location.
@@ -77,7 +77,23 @@ $ScriptsInstall       = Join-Path $SkillMeetingsInstall 'scripts'
 $ConfigInstall        = Join-Path $SkillMeetingsInstall 'config.json'
 $StateDir             = Join-Path $SkillMeetingsInstall 'state'
 
-Write-Header "Plaud Meetings Digest — Windows Installer (v2.4.3)"
+Write-Header "Plaud Meetings Digest — Windows Installer (v2.5.0)"
+
+# ---- Preflight — refuse install if the environment can't support it ------
+# Catches the field landmines (WindowsApps python alias, etc.) before they
+# silently break scheduled runs. Override with GALLANT_SKIP_PREFLIGHT=1.
+$PreflightScript = Join-Path $ScriptsSrc 'preflight.ps1'
+if (Test-Path $PreflightScript) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $PreflightScript
+    if ($LASTEXITCODE -ne 0) {
+        if ($env:GALLANT_SKIP_PREFLIGHT -eq '1') {
+            Write-Warn "Preflight reported blockers but GALLANT_SKIP_PREFLIGHT=1 — continuing anyway."
+        } else {
+            Write-Err "Preflight failed. Fix the blockers above and re-run (or set GALLANT_SKIP_PREFLIGHT=1 to override)."
+            exit 1
+        }
+    }
+}
 
 # ============================================================================
 # Step 1 — Prerequisites
@@ -447,16 +463,14 @@ $heartbeatBase = 'https://hc-ping.com'
 $checkLunch = $null
 $checkEod = $null
 $checkRollup = $null
-$checkAutoUpdate = $null
 
 # Env-var path (non-interactive sandboxed installs + cleaner operator flow)
 if ($env:GALLANT_HEARTBEAT_BASE) { $heartbeatBase = $env:GALLANT_HEARTBEAT_BASE }
 if ($env:GALLANT_HEARTBEAT_CHECK_LUNCH)       { $checkLunch       = $env:GALLANT_HEARTBEAT_CHECK_LUNCH }
 if ($env:GALLANT_HEARTBEAT_CHECK_EOD)         { $checkEod         = $env:GALLANT_HEARTBEAT_CHECK_EOD }
 if ($env:GALLANT_HEARTBEAT_CHECK_ROLLUP)      { $checkRollup      = $env:GALLANT_HEARTBEAT_CHECK_ROLLUP }
-if ($env:GALLANT_HEARTBEAT_CHECK_AUTO_UPDATE) { $checkAutoUpdate  = $env:GALLANT_HEARTBEAT_CHECK_AUTO_UPDATE }
 
-$envProvided = $checkLunch -or $checkEod -or $checkRollup -or $checkAutoUpdate
+$envProvided = $checkLunch -or $checkEod -or $checkRollup
 if (-not $envProvided) {
     $enable = Read-Host "Enable heartbeat? [Y/n]"
     if (-not $enable -or $enable -ne 'n') {
@@ -465,15 +479,14 @@ if (-not $envProvided) {
         $checkLunch      = Read-Host "Check UUID for daily 11:00 AM (lunch)"
         $checkEod        = Read-Host "Check UUID for daily 4:00 PM (eod)"
         $checkRollup     = Read-Host "Check UUID for Friday 4:30 PM (rollup)"
-        $checkAutoUpdate = Read-Host "Check UUID for daily 3:00 AM (auto-update)"
     }
 }
 # Normalize empty strings to $null
-foreach ($v in 'checkLunch','checkEod','checkRollup','checkAutoUpdate') {
+foreach ($v in 'checkLunch','checkEod','checkRollup') {
     if (-not (Get-Variable $v -ValueOnly)) { Set-Variable $v -Value $null }
     else { Set-Variable $v -Value (Get-Variable $v -ValueOnly).Trim() }
 }
-if ($checkLunch -or $checkEod -or $checkRollup -or $checkAutoUpdate) {
+if ($checkLunch -or $checkEod -or $checkRollup) {
     $heartbeatEnabled = $true
     Write-Ok "Heartbeat enabled"
 } else {
@@ -520,10 +533,14 @@ $configTemplate.gallant_heartbeat.ping_base_url = $heartbeatBase
 $configTemplate.gallant_heartbeat.checks.lunch = $checkLunch
 $configTemplate.gallant_heartbeat.checks.eod = $checkEod
 $configTemplate.gallant_heartbeat.checks.rollup = $checkRollup
-$configTemplate.gallant_heartbeat.checks.auto_update = $checkAutoUpdate
 
+# Write config.json WITHOUT a UTF-8 BOM. Windows PowerShell 5.1's
+# `Set-Content -Encoding UTF8` emits a BOM, which Python's json.loads() rejects
+# ("Expecting value: line 1 column 1 (char 0)"). .NET UTF8Encoding($false)
+# writes BOM-less on both PS 5.1 and PS 7+.
 $configJson = $configTemplate | ConvertTo-Json -Depth 10
-Set-Content -Path $ConfigInstall -Value $configJson -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($ConfigInstall, $configJson, $utf8NoBom)
 
 Write-Ok "Skills installed at $SkillMeetingsInstall and $SkillRollupInstall"
 Write-Ok "Config written to $ConfigInstall"
@@ -535,7 +552,7 @@ $VersionFile = Join-Path $BundlePrefix 'version.txt'
 # Read version from package.json equivalent — use the config version as the
 # canonical version stamp (single source of truth for the bundle's identity).
 $bundleVersion = $configTemplate.version
-Set-Content -Path $VersionFile -Value $bundleVersion -Encoding UTF8
+[System.IO.File]::WriteAllText($VersionFile, $bundleVersion, (New-Object System.Text.UTF8Encoding $false))
 Write-Ok "Bundle version stamped: $bundleVersion -> $VersionFile"
 
 # ============================================================================
@@ -590,6 +607,7 @@ Write-Host "  • Test now:    claude -p `"/meetings-digest`""
 Write-Host "  • Scheduled:   Runs at 11:00 AM and 4:00 PM daily; Friday 4:30 PM rollup"
 Write-Host "  • Output:      $plaudFolder"
 Write-Host "  • Logs:        $HOME\AppData\Local\plaud-meetings-digest\logs\"
+Write-Host "  • Updates:     operator-initiated — run update.ps1 (auto-update deprecated in v2.5.0)"
 Write-Host ""
 Write-Host "Train the client: tell them to ALWAYS state the meeting type at the start of every Plaud recording" -ForegroundColor Yellow
 Write-Host "(e.g., 'Kingsway Pharma meeting with John Smith'). Without this, recordings route to 'Uncategorized'." -ForegroundColor Yellow

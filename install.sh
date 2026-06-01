@@ -315,10 +315,9 @@ HEARTBEAT_BASE="${GALLANT_HEARTBEAT_BASE:-https://hc-ping.com}"
 CHECK_LUNCH="${GALLANT_HEARTBEAT_CHECK_LUNCH:-}"
 CHECK_EOD="${GALLANT_HEARTBEAT_CHECK_EOD:-}"
 CHECK_ROLLUP="${GALLANT_HEARTBEAT_CHECK_ROLLUP:-}"
-CHECK_AUTO_UPDATE="${GALLANT_HEARTBEAT_CHECK_AUTO_UPDATE:-}"
 
 ENV_PROVIDED=""
-if [[ -n "$CHECK_LUNCH$CHECK_EOD$CHECK_ROLLUP$CHECK_AUTO_UPDATE" ]]; then ENV_PROVIDED="yes"; fi
+if [[ -n "$CHECK_LUNCH$CHECK_EOD$CHECK_ROLLUP" ]]; then ENV_PROVIDED="yes"; fi
 
 if [[ -z "$ENV_PROVIDED" ]]; then
   read -p "Enable heartbeat? [Y/n]: " HB_ENABLE
@@ -329,11 +328,10 @@ if [[ -z "$ENV_PROVIDED" ]]; then
     read -p "Check UUID for daily 11:00 AM (lunch): " CHECK_LUNCH
     read -p "Check UUID for daily 4:00 PM (eod): " CHECK_EOD
     read -p "Check UUID for Friday 4:30 PM (rollup): " CHECK_ROLLUP
-    read -p "Check UUID for daily 3:00 AM (auto-update): " CHECK_AUTO_UPDATE
   fi
 fi
 
-if [[ -n "$CHECK_LUNCH$CHECK_EOD$CHECK_ROLLUP$CHECK_AUTO_UPDATE" ]]; then
+if [[ -n "$CHECK_LUNCH$CHECK_EOD$CHECK_ROLLUP" ]]; then
   HEARTBEAT_ENABLED="true"
   ok "Heartbeat enabled"
 else
@@ -405,7 +403,6 @@ template["gallant_heartbeat"]["ping_base_url"] = "$HEARTBEAT_BASE"
 template["gallant_heartbeat"]["checks"]["lunch"]       = "$CHECK_LUNCH" or None
 template["gallant_heartbeat"]["checks"]["eod"]         = "$CHECK_EOD" or None
 template["gallant_heartbeat"]["checks"]["rollup"]      = "$CHECK_ROLLUP" or None
-template["gallant_heartbeat"]["checks"]["auto_update"] = "$CHECK_AUTO_UPDATE" or None
 
 Path("$CONFIG_INSTALL").write_text(json.dumps(template, indent=2))
 EOF

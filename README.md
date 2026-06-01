@@ -37,12 +37,11 @@ The skill scans the first ~30 seconds for the keyword. Default keywords for this
 
 ### Automatic (you don't do anything)
 
-Four scheduled jobs run on their own:
+Three scheduled jobs run on their own:
 
 - **11:00 AM daily** — pull morning meetings
 - **4:00 PM daily** — pull afternoon meetings
 - **4:30 PM Friday** — synthesize the weekly rollup (one `.docx` per rollup-enabled bucket)
-- **3:00 AM daily** — check for + apply Gallant-published updates
 
 Outputs land in:
 - **Windows**: `<OneDrive>\Plaud Meetings\<meeting-type>\<per-week subfolder>\<prefix>.<short topic> (<attendees>).docx` (e.g. `Kingsway Pharma\KPM.May 25-29, 2026 (Week 22)\KPM.Q3 Plans (John Smith).docx`) — one `.docx` per meeting; action items rendered as ☐ checklist items. Meeting prefixes (`KPM` / `CMM` / `CHM` / `PM` / `UN`) carry a trailing `M` so the client can distinguish meeting files from anything else with the same 2-letter prefix in their OneDrive. Each Friday rollup uses the bucket's rollup prefix (`KPR` / `CMR` / `CHR` / `PR`) and lands in the same week folder as that bucket's meetings.
@@ -81,11 +80,11 @@ For anything else: contact the Gallant operator who installed this.
 
 ## Updates & alerting (operator-side)
 
-Updates push automatically. A nightly Scheduled Task (Windows) / launchd job (Mac) at **3:00 AM local time** checks GitHub Releases; if a new release is published, the bundle replaces itself silently (snapshotting the previous version to `<install-prefix>/.versions/` for rollback). You'll see the new version in the next morning's run — zero client action required.
+Updates are operator-initiated. Run `update.ps1` (Windows) to check for and apply the latest release; `update.ps1 -Check` reports whether a newer version is available without applying it. There is no nightly self-update task.
 
 Every scheduled run pings [Healthchecks.io](https://healthchecks.io) before/after it runs. If a ping doesn't arrive within the expected window (machine asleep, Claude died, Scheduled Task de-registered, network down), the operator gets an email / Slack alert automatically — usually within ~1 hour of the missed window. Operator runbook for per-client Healthchecks setup: see [`OPERATOR-INSTALL-GUIDE.md`](OPERATOR-INSTALL-GUIDE.md).
 
-To pin to a specific version (e.g., if a bad release ships): edit `~\.claude\skills\meetings-digest\config.json` and set `gallant_auto_update.pinned_version` to a release tag (e.g., `"v2.1.4"`). Auto-update will respect the pin. Set back to `null` to unpin.
+To pin to a specific version (e.g., if a bad release ships): edit `~\.claude\skills\meetings-digest\config.json` and set `gallant_auto_update.pinned_version` to a release tag (e.g., `"v2.1.4"`). `update.ps1` will respect the pin and not upgrade past it. Set back to `null` to unpin.
 
 ## Versions
 

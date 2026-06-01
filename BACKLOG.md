@@ -2,6 +2,29 @@
 
 Polish items + bug fixes discovered after release but not blocking daily use. Move items to a release once they're scoped + targeted.
 
+## v2.5.0 — outage fixes + auto-update deprecation (IN PROGRESS 2026-06-01)
+
+Diagnosed on bblessing's machine (NFI Consumer Products, Win11 domain) 2026-06-01 — v2.4.1 broke ALL scheduled runs since May 29; zero meetings processed for 4 days. Eight bugs fixed + auto-update deprecated. Full on-machine bug report archived (see commit / `raw/conversations/2026-06-01-plaud-bug-report`).
+
+**Bug fixes (all ported into the bundle):**
+- [x] **Bug 1 (critical):** `schedule.ps1` resolved Python via `Get-Command python`, which returns the Microsoft Store WindowsApps alias — unrunnable under Task Scheduler (exits `0x80070001` in ~1s). New `Resolve-PythonExe`: py.exe launcher → per-user install paths → PATH (rejecting the WindowsApps alias).
+- [x] **Bug 2 (high):** HC.io outcome ping sent the raw 9-digit HRESULT as the suffix, which HC rejects → silent no-alert. Normalized to 0-255 (`Get-HcSuffix`); `-LogPath` now passed to every task so wrapper-level failures are logged.
+- [x] **Bug 3 (high) → deprecated:** auto-update task scheduled at 3 AM with interactive logon never fired (machine locked). **Operator decision: deprecate auto-update entirely** (see ADR-012). Updates now operator-initiated via `update.ps1`.
+- [x] **Bug 4 (medium):** weekly rollup skipped the first Friday when installed mid-week (StartBoundary = install time). `Get-NextWeekday` anchors the boundary to the next actual Friday.
+- [x] **Bug 5 (critical):** `--` stop-parse token failed under `powershell.exe -File` (bound as a positional value). Removed from `Build-WrappedAction` + the wrapper usage comment.
+- [x] **Bug 6 (critical):** `[CmdletBinding()]` alone keeps positional binding on; the inner exe landed in `$BundlePrefix`, runs logged `source=manual`. Added `PositionalBinding=$false`.
+- [x] **Bug 7 (high):** `config.json` acquired a UTF-8 BOM from PS 5.1 `Set-Content -Encoding UTF8`, breaking `json.loads`. install.ps1 now writes BOM-less via .NET `UTF8Encoding($false)`; `digest-runner.py` reads with `encoding="utf-8-sig"` (defense-in-depth).
+- [x] **Bug 8 (high):** `docx_writer.py` used glibc-only `%-I` → crashed every Windows docx write. Platform-branched to `%#I` on win32.
+
+**Auto-update deprecation (ADR-012):** removed the scheduled task (`schedule.ps1`/`schedule.sh` defensively unregister it), flipped `gallant_auto_update.enabled` → false + `deprecated:true` in the config template, dropped the `auto_update` HC check, deleted `auto-update.{ps1,sh}`, stripped the auto-rollback hook from `run-with-heartbeat.{ps1,sh}`. New operator-initiated `update.ps1` (`-Check` / apply). New `scripts/preflight.ps1` (Python-alias + PS-edition + Claude-CLI + OneDrive-writability detection) wired into install.ps1.
+
+**Deferred to v2.5.1 (tracked, not done):**
+- [ ] **At-launch daily update-check hint (operator follow-up #4):** poll GitHub `releases/latest` once/day from an explicit entrypoint (tray or runner) and surface "newer version available." Needs a once-per-day throttle file + a stable entrypoint hook — cleanest once the tray is stable. `update.ps1 -Check` already provides the check primitive.
+- [ ] **Residual blocker (separate from the 8 bugs):** on bblessing's machine the Claude CLI under Task Scheduler exits `STATUS_CONTROL_C_EXIT` before producing files. Investigate separately — likely resolved by the planned Playwright→DOCX pivot (no per-meeting Claude CLI call).
+- [ ] **Stale model id:** config template defaults `weekly-rollup` to `claude-opus-4-7` — verify/pin to a current model id (dependency-pinning discipline) before next ship.
+- [ ] **Install.ps1 line ~221 comment** still references `auto-update.ps1` for the Git prereq rationale — cosmetic, update to `update.ps1`.
+- [ ] **install.ps1 Claude-installer fallback (pre-existing, low-severity):** `Invoke-Expression $installer` for the Claude CLI doesn't check `$LASTEXITCODE`, so the winget fallback is effectively unreachable for a non-throwing installer failure (the recursive path-search at ~L325 usually recovers `claude`). Surfaced by the v2.5.0 PowerShell audit; not introduced by v2.5.0. Fix: re-check `Get-Command claude` after the installer and branch to winget if absent.
+
 ## v2.4.3 — Tk widget bugfixes (SHIPPED 2026-05-29)
 
 Same-day patch on top of v2.4.2. Two real bugs in widget_tk.py surfaced when the widget was tested programmatically on Mac with a stub Api — both would have made the Tk widget non-functional on Ben's machine had v2.4.2 reached him:
