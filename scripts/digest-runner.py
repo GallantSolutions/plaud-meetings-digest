@@ -87,7 +87,7 @@ def main() -> int:
         return 1
 
     try:
-        config = json.loads(CONFIG_PATH.read_text())
+        config = json.loads(CONFIG_PATH.read_text(encoding="utf-8-sig"))  # utf-8-sig strips a stray UTF-8 BOM (PS 5.1 `Set-Content -Encoding UTF8` writes one) so json.loads doesn't choke on it
     except json.JSONDecodeError as e:
         log(f"ERROR: config JSON invalid: {e}")
         return 1

@@ -8,22 +8,28 @@
 #       -File "C:\path\to\run-with-heartbeat.ps1" `
 #       -CheckId "uuid-from-healthchecks" `
 #       -PingBaseUrl "https://hc-ping.com" `
-#       -- python.exe digest-runner.py --skill meetings-digest --source lunch
+#       -LogPath "C:\...\logs\wrapper.log" `
+#       python.exe digest-runner.py --skill meetings-digest --source lunch
 #
-# Anything after the -- is treated as the wrapped command + its args.
+# Every token after the named parameters is the wrapped command + its args,
+# collected by $RestArgs. There is NO `--` separator: under `powershell.exe
+# -File`, `--` binds as a positional param value, not a stop-parse token, so
+# it must be omitted (and PositionalBinding=$false keeps the named params
+# name-only so the executable lands in $RestArgs, not $BundlePrefix).
 #
 # Ping flow:
 #   1. GET <base>/<id>/start         (let HC know the job started)
 #   2. Run the command, capture exit code
-#   3. GET <base>/<id>/<exit-code>   (0 = success, anything else = fail)
+#   3. GET <base>/<id>/<exit-code>   (0 = success; normalized to 0-255)
 #
 # Heartbeat pings are best-effort. A failed ping NEVER aborts the wrapped
-# command — if the network is down, the job still runs successfully and the
-# operator just sees a missed-ping alert on the next scheduled window.
+# command — if the network is down, the job still runs and the operator just
+# sees a missed-ping alert on the next scheduled window.
 # ============================================================================
 
 #Requires -Version 5.1
 
+[CmdletBinding(PositionalBinding=$false)]
 param(
     [Parameter(Mandatory=$true)]
     [string]$CheckId,
@@ -34,18 +40,17 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$LogPath = '',
 
-    [Parameter(Mandatory=$false)]
-    [string]$BundlePrefix = '',
-
     [Parameter(ValueFromRemainingArguments=$true)]
     [string[]]$RestArgs
 )
 
 $ErrorActionPreference = 'Continue'  # do NOT stop on ping failures
 
-# Default the bundle prefix to the standard install location if not supplied
-if (-not $BundlePrefix) {
-    $BundlePrefix = Join-Path $env:LOCALAPPDATA 'plaud-meetings-digest'
+function Write-WrapperLog {
+    param([string]$Message)
+    if ($LogPath) {
+        try { "[$(Get-Date -Format o)] $Message" | Out-File -FilePath $LogPath -Append -Encoding UTF8 } catch {}
+    }
 }
 
 function Send-HeartbeatPing {
@@ -58,110 +63,19 @@ function Send-HeartbeatPing {
     try {
         Invoke-WebRequest -Uri $url -Method Get -TimeoutSec 10 -UseBasicParsing | Out-Null
     } catch {
-        if ($LogPath) {
-            try { "[$(Get-Date -Format o)] heartbeat ping failed ($url): $($_.Exception.Message)" | Out-File -FilePath $LogPath -Append -Encoding UTF8 } catch {}
-        }
+        Write-WrapperLog "heartbeat ping failed ($url): $($_.Exception.Message)"
     }
 }
 
-function Write-RollbackLog {
-    param([string]$Message)
-    $rollbackLog = Join-Path $BundlePrefix 'logs\auto-rollback.log'
-    try {
-        $logDir = Split-Path -Parent $rollbackLog
-        if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
-        "[$(Get-Date -Format o)] $Message" | Out-File -FilePath $rollbackLog -Append -Encoding UTF8
-    } catch {}
-}
-
-function Invoke-AutoRollbackIfWarranted {
-    <#
-    Called when the wrapped command exited non-zero. Checks the update
-    marker; if the most-recent auto-update was within 24h AND we haven't
-    already rolled back, restores the previous version's bundle snapshot
-    and pings the heartbeat with a special marker.
-    #>
-    $marker = Join-Path $BundlePrefix '.last-update.json'
-    if (-not (Test-Path $marker)) { return $false }
-
-    try {
-        $markerData = Get-Content $marker -Raw | ConvertFrom-Json
-    } catch {
-        Write-RollbackLog "marker exists but parse failed: $($_.Exception.Message)"
-        return $false
-    }
-
-    if ($markerData.rolled_back -eq $true) {
-        Write-RollbackLog "rollback already executed for this update — skipping"
-        return $false
-    }
-
-    $fromVersion = $markerData.from_version
-    if (-not $fromVersion) {
-        Write-RollbackLog "marker has no from_version — cannot rollback"
-        return $false
-    }
-
-    # Window check: only auto-rollback if the update was recent (<24h)
-    try {
-        $updatedAt = [DateTime]::Parse($markerData.updated_at)
-        $ageHours = ((Get-Date) - $updatedAt).TotalHours
-        if ($ageHours -gt 24) {
-            Write-RollbackLog "update was $([int]$ageHours)h ago — outside rollback window, skipping"
-            return $false
-        }
-    } catch {
-        Write-RollbackLog "could not parse updated_at: $($_.Exception.Message)"
-        return $false
-    }
-
-    $snapshot = Join-Path $BundlePrefix ".versions\$fromVersion"
-    if (-not (Test-Path $snapshot)) {
-        Write-RollbackLog "snapshot missing at $snapshot — cannot rollback"
-        return $false
-    }
-
-    Write-RollbackLog "ROLLING BACK to $fromVersion (snapshot at $snapshot)"
-
-    # Restore snapshot contents over the bundle prefix.
-    # Skip .versions/, logs/, .last-update.json (we update the marker after).
-    try {
-        Get-ChildItem -Path $snapshot -Force | ForEach-Object {
-            if ($_.Name -in @('.versions', 'logs', '.last-update.json')) { return }
-            $destPath = Join-Path $BundlePrefix $_.Name
-            if (Test-Path $destPath) { Remove-Item -Path $destPath -Recurse -Force }
-            Copy-Item -Path $_.FullName -Destination $destPath -Recurse -Force
-        }
-
-        # Reset version.txt to the rolled-back version
-        $vFile = Join-Path $BundlePrefix 'version.txt'
-        Set-Content -Path $vFile -Value $fromVersion -Encoding UTF8
-
-        # Mark the marker as rolled back (one-shot guard)
-        $markerData | Add-Member -NotePropertyName rolled_back -NotePropertyValue $true -Force
-        $markerData | Add-Member -NotePropertyName rolled_back_at -NotePropertyValue (Get-Date -Format o) -Force
-        ($markerData | ConvertTo-Json) | Set-Content -Path $marker -Encoding UTF8
-
-        # Re-register Scheduled Tasks from the rolled-back schedule.ps1
-        $scheduleScript = Join-Path $BundlePrefix 'scripts\schedule.ps1'
-        if (Test-Path $scheduleScript) {
-            try {
-                $configPath = Join-Path $HOME '.claude\skills\meetings-digest\config.json'
-                & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $scheduleScript -ConfigPath $configPath | Out-Null
-            } catch {
-                Write-RollbackLog "schedule.ps1 re-registration after rollback failed: $($_.Exception.Message)"
-            }
-        }
-
-        Write-RollbackLog "ROLLBACK COMPLETE — bundle restored to $fromVersion"
-        # Special heartbeat ping so the operator knows a rollback happened
-        # (Healthchecks renders the suffix in the dashboard event log)
-        Send-HeartbeatPing -Suffix 'fail'
-        return $true
-    } catch {
-        Write-RollbackLog "ROLLBACK FAILED: $($_.Exception.Message)"
-        return $false
-    }
+# Healthchecks.io only accepts an exit-code suffix in the 0-255 range. A raw
+# Windows HRESULT (e.g. 2147942401 from a WindowsApps alias) is a 9-digit
+# value HC rejects (4xx), which would silently drop the outcome ping and the
+# operator would never be alerted. Normalize: 0 → success, anything else → 1.
+function Get-HcSuffix {
+    param([int]$Code)
+    if ($Code -eq 0) { return '0' }
+    if ($Code -lt 0 -or $Code -gt 255) { return '1' }
+    return $Code.ToString()
 }
 
 # ---- Start ping ----------------------------------------------------------
@@ -170,9 +84,7 @@ Send-HeartbeatPing -Suffix 'start'
 # ---- Run the wrapped command --------------------------------------------
 $exitCode = 0
 if (-not $RestArgs -or $RestArgs.Count -eq 0) {
-    if ($LogPath) {
-        try { "[$(Get-Date -Format o)] no command supplied — nothing to run" | Out-File -FilePath $LogPath -Append -Encoding UTF8 } catch {}
-    }
+    Write-WrapperLog "no command supplied — nothing to run"
     Send-HeartbeatPing -Suffix '99'
     exit 99
 }
@@ -186,29 +98,11 @@ try {
     if ($null -eq $exitCode) { $exitCode = 0 }
 } catch {
     $exitCode = 99  # wrapper-level failure
-    if ($LogPath) {
-        try { "[$(Get-Date -Format o)] wrapped command threw: $($_.Exception.Message)" | Out-File -FilePath $LogPath -Append -Encoding UTF8 } catch {}
-    }
-}
-
-# ---- Auto-rollback (v2.2.3+) --------------------------------------------
-# If the wrapped command failed AND we recently auto-updated, restore the
-# previous version. This is a self-healing safety net for the failure mode
-# where a bad release breaks the install — the client doesn't have to
-# notice, the next scheduled run will execute on the rolled-back code.
-if ($exitCode -ne 0) {
-    $rolledBack = Invoke-AutoRollbackIfWarranted
-    if ($rolledBack) {
-        # The outcome ping happens inside Invoke-AutoRollbackIfWarranted with
-        # a 'fail' suffix so Healthchecks fires the alert AND the dashboard
-        # event log captures that a rollback occurred. Don't double-ping.
-        exit $exitCode
-    }
+    Write-WrapperLog "wrapped command threw: $($_.Exception.Message)"
 }
 
 # ---- Outcome ping --------------------------------------------------------
-# Healthchecks accepts /<id>/<exit-code> directly: 0 is success, non-zero is
-# treated as failure and triggers the configured notification channel.
-Send-HeartbeatPing -Suffix $exitCode.ToString()
+# Normalized to the 0-255 range HC accepts; non-zero triggers the alert.
+Send-HeartbeatPing -Suffix (Get-HcSuffix -Code $exitCode)
 
 exit $exitCode

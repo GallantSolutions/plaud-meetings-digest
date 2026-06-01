@@ -88,7 +88,7 @@ Press Enter. The script:
    - Detects OneDrive folder + creates `Plaud Meetings\` inside it
    - Asks about meeting routing (accept defaults: Kingsway Pharma + Committee + Church + Personal — all four roll up)
    - Installs both skills (meetings-digest + weekly-rollup) into Claude Code
-   - Installs four Windows Task Scheduler jobs (lunch 11:00 AM, EOD 4:00 PM daily, Friday rollup 4:30 PM, nightly 3:00 AM auto-update)
+   - Installs three Windows Task Scheduler jobs (lunch 11:00 AM, EOD 4:00 PM daily, Friday rollup 4:30 PM)
 
 ### Mac path
 
@@ -110,7 +110,7 @@ Press Enter. The script does the equivalent on Mac:
    - Defaults destination to Notion: walks you through creating a Notion integration + parent page
    - Asks aboBut meeting routing (defaults: Kingsway Pharma + Committee + Church + Personal — all four roll up)
    - Installs both skills into Claude Code
-   - Installs four launchd jobs (lunch 11:00 AM, EOD 4:00 PM daily, Friday rollup 4:30 PM, nightly 3:00 AM auto-update)
+   - Installs three launchd jobs (lunch 11:00 AM, EOD 4:00 PM daily, Friday rollup 4:30 PM)
 
 ---
 
@@ -140,7 +140,7 @@ All four buckets roll up per Ben's request (one `.docx` per bucket per week). To
 
 ### Heartbeat (Step 4b/5b — operator alerts when something breaks)
 
-The installer prompts for Healthchecks.io check UUIDs — one per scheduled job (lunch / eod / rollup / auto-update). If you provide them, every scheduled run pings Healthchecks before/after it fires, and you get an email or Slack alert within ~1 hour when a run misses its window.
+The installer prompts for Healthchecks.io check UUIDs — one per scheduled job (lunch / eod / rollup). If you provide them, every scheduled run pings Healthchecks before/after it fires, and you get an email or Slack alert within ~1 hour when a run misses its window.
 
 **One-time Gallant setup (do this ONCE, ever):**
 1. Sign up at [healthchecks.io](https://healthchecks.io) using your operator email (free tier covers 20 checks)
@@ -149,43 +149,39 @@ The installer prompts for Healthchecks.io check UUIDs — one per scheduled job 
 
 **Per-client setup (every new install — ~2 min):**
 
-Before sitting with the client, in Healthchecks → "+ Add Check" 4 times with these settings:
+Before sitting with the client, in Healthchecks → "+ Add Check" 3 times with these settings:
 
 | Check name | Period | Grace |
 |---|---|---|
 | `<client-slug> — plaud lunch` | 1 day | 30 min |
 | `<client-slug> — plaud EOD` | 1 day | 30 min |
 | `<client-slug> — plaud Friday rollup` | 1 week | 1 hour |
-| `<client-slug> — plaud auto-update` | 1 day | 1 hour |
 
-Copy each check's ping UUID (the 32-char hex string after `https://hc-ping.com/`). Paste them when the installer prompts during Step 4b (Windows) / 5b (Mac). Pressing Enter on all four skips heartbeat — operator gets no alerts but the install still completes.
+Copy each check's ping UUID (the 32-char hex string after `https://hc-ping.com/`). Paste them when the installer prompts during Step 4b (Windows) / 5b (Mac). Pressing Enter on all three skips heartbeat — operator gets no alerts but the install still completes.
 
 To set non-interactively (e.g., re-running install for a fresh sandbox), set:
 ```bash
 export GALLANT_HEARTBEAT_CHECK_LUNCH=<uuid>
 export GALLANT_HEARTBEAT_CHECK_EOD=<uuid>
 export GALLANT_HEARTBEAT_CHECK_ROLLUP=<uuid>
-export GALLANT_HEARTBEAT_CHECK_AUTO_UPDATE=<uuid>
 ```
 
 ### Schedule (Step 6/7)
-Accept default (**Y** when prompted). Installs all FOUR jobs (lunch + EOD + Friday rollup + nightly auto-update at 3:00 AM).
+Accept default (**Y** when prompted). Installs three jobs (lunch + EOD + Friday rollup).
 
-### Auto-update (silent, runs nightly at 3:00 AM)
+### Updates (operator-initiated)
 
-The bundle keeps itself current. When you publish a new GitHub Release (`gh release create vX.Y.Z`), every client install picks it up overnight — no client action required. The current version is snapshotted to `<install-prefix>/.versions/<old-tag>/` before each update, so rollback is possible.
+Updates are applied by the operator, not on a nightly schedule. When you publish a new GitHub Release (`gh release create vX.Y.Z`), upgrade a client by running `update.ps1` on their machine — it pulls the latest release and overwrites the install (config + state survive). Run `update.ps1 -Check` first to see whether a newer version is available without applying it. There is no nightly self-update task.
 
 **To pin a client to a specific version** (e.g., if a bad release shipped):
 1. SSH / TeamViewer into the client machine
 2. Edit `~\.claude\skills\meetings-digest\config.json`
 3. Set `gallant_auto_update.pinned_version` to a release tag (e.g., `"v2.1.4"`)
-4. Auto-update will respect the pin until you set it back to `null`
+4. `update.ps1` will respect the pin and not upgrade past it until you set it back to `null`
 
 **To roll back manually**:
 - Windows: copy contents of `%LOCALAPPDATA%\plaud-meetings-digest\.versions\<old-tag>\` over `%LOCALAPPDATA%\plaud-meetings-digest\`, then re-run `scripts\schedule.ps1`
 - Mac: same but at `~/Library/Application\ Support/plaud-meetings-digest/`
-
-**Auto-rollback (v2.2.3+):** If a scheduled job fails non-zero AND the most recent auto-update happened within the last 24h, the heartbeat wrapper automatically restores the previous version's bundle snapshot. You'll get a Healthchecks `fail` ping that announces the failure (operator's normal alert path). Check `<install-prefix>/logs/auto-rollback.log` for the rollback audit trail. The marker file `<install-prefix>/.last-update.json` sets `rolled_back: true` so the rollback is one-shot per update — subsequent failures don't recurse. To re-enable rollback for a fresh update push, just push a new release: the next auto-update writes a new marker with `rolled_back: false`.
 
 ---
 
@@ -242,9 +238,9 @@ Most common failure: client recorded a test meeting but didn't say the meeting t
 ## Handoff checklist
 
 - [ ] Test run produced output in the routed location
-- [ ] All four scheduled jobs verified
-   - Windows: `Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_*'` shows 4 rows (Lunch, EOD, Rollup, AutoUpdate)
-   - Mac: `launchctl list | grep plaud-meetings-digest` shows 4 rows
+- [ ] All three scheduled jobs verified
+   - Windows: `Get-ScheduledTask -TaskName 'PlaudMeetingsDigest_*'` shows 3 rows (Lunch, EOD, Rollup)
+   - Mac: `launchctl list | grep plaud-meetings-digest` shows 3 rows
 - [ ] Computer timezone confirmed = Eastern (or whatever client wants the schedule to fire in)
 - [ ] Client knows to state the meeting type at every recording's start
 - [ ] Client knows where outputs appear (folder bookmark / Notion bookmark)

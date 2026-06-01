@@ -301,7 +301,8 @@ def write_docx(meeting: dict[str, Any], output_path: Path) -> None:
     # Single meta line: Date | Duration | Speakers (if different from attendees)
     meta_p = doc.add_paragraph()
     meta_p.paragraph_format.space_after = Pt(6)
-    meta_bits = [recorded.strftime("%A, %B %d, %Y at %-I:%M %p")]
+    _hour_fmt = "%#I" if sys.platform == "win32" else "%-I"  # %-I (no zero-pad) is glibc-only; Windows _strftime uses %#I
+    meta_bits = [recorded.strftime(f"%A, %B %d, %Y at {_hour_fmt}:%M %p")]
     if duration:
         meta_bits.append(f"{int(duration)} minutes")
     meta_text = "    |    ".join(meta_bits)

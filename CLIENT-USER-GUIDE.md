@@ -17,7 +17,7 @@ This document accompanies the meeting-capture system Gallant has built and deplo
 
 Two things matter for it to work well. They take seconds. They are described in detail on the pages that follow, and summarized on the pull-out reference card near the back.
 
-We have engineered the system to take care of itself — it updates automatically each night, alerts our team within an hour if something fails, and reverts itself when a fresh update misbehaves. You should not need to think about it. If something ever looks off, we ask only that you tell us; you do not need to attempt to fix it.
+We have engineered the system to take care of itself — it alerts our team within an hour if something fails, and we apply any updates for you when needed. You should not need to think about it. If something ever looks off, we ask only that you tell us; you do not need to attempt to fix it.
 
 This is a relationship, not a software install. Treat us as the line of escalation any time the system surprises you. Same-day response is the standard you should hold us to.
 
@@ -106,7 +106,6 @@ The system operates on a fixed daily schedule. You do not need to remember the s
 | 12:30 PM each weekday | Pulls all morning recordings, generates documents, files into OneDrive |
 | 5:00 PM each weekday | Pulls all afternoon recordings, generates documents, files into OneDrive |
 | 5:30 PM each Friday | Synthesizes the Kingsway Pharma weekly rollup |
-| 3:00 AM each night | Checks for system updates; installs silently if available |
 
 A recording made at 11:00 AM appears after 12:30 PM. A recording made at 4:00 PM appears after 5:00 PM. A recording made over the weekend lands the following Monday at 12:30 PM.
 
@@ -118,7 +117,7 @@ A recording made at 11:00 AM appears after 12:30 PM. A recording made at 4:00 PM
 4. It re-reads the transcript carefully and extracts the meaning: a recap, action items, decisions, open questions, and notable quotes.
 5. It writes a Word document with that content and files it into the correct OneDrive folder.
 
-The entire process is supervised by software designed to fail safely. If any step misbehaves, our team is notified within an hour, the previous working version is restored automatically, and the missed recordings catch up on the following scheduled run.
+The entire process is supervised by software designed to fail safely. If any step misbehaves, our team is notified within an hour, and the missed recordings catch up on the following scheduled run.
 
 ---
 
@@ -296,7 +295,7 @@ These will not break the system permanently, but they create avoidable work for 
 
 - **Do not edit files in your `.claude` folder.** It is hidden by default. If you find it, leave it.
 - **Do not delete Plaud recordings before they appear in OneDrive.** Plaud is the source of truth; OneDrive is the output. If you delete from Plaud before the system has retrieved the recording, the meeting is lost.
-- **Do not install Plaud or Claude updates yourself.** The system handles its own updates automatically.
+- **Do not install Plaud or Claude updates yourself.** Your Gallant operator applies any updates for you when needed.
 - **Do not disconnect your OneDrive account.** Meetings stop appearing if OneDrive is signed out.
 - **Do not move the "Plaud Meetings" folder out of OneDrive.** Move files within it freely; the parent folder stays where it is.
 - **Do not change the meeting keywords** without telling us. If you start saying "KP meeting" instead of "Kingsway Pharma," nothing routes correctly. To add a new meeting type — a new project, a new client — contact support and we will configure it.
@@ -305,11 +304,7 @@ These will not break the system permanently, but they create avoidable work for 
 
 ## 10. How the system maintains itself
 
-Each night at 3:00 AM the system checks for a new version and installs it silently if one is available. You will not notice. A fix published at 6:00 PM today will be in place by tomorrow morning.
-
-**Self-healing.** If an update causes the system to fail, the previous working version is automatically restored at the next scheduled run. Our team is alerted within roughly an hour. You will see no interruption.
-
-**Required conditions.** For automatic updates to work, the computer must be on, signed in (lock screen is fine), and connected to the internet at 3:00 AM. A typical office computer with the lid closed and on Wi-Fi satisfies all three.
+The system does not self-update. When a new version is ready, your Gallant operator applies the update for you when needed. You do not need to do anything, and there is no nightly update task running on your machine.
 
 You will never be asked to apply an update manually. If we ever do need physical access to your machine, we will reach out first and schedule it.
 
@@ -326,7 +321,7 @@ You will never be asked to apply an update manually. If we ever do need physical
 
 ### What our team monitors automatically
 
-Behind the scenes, the system reports to a monitoring service every time a scheduled run completes successfully. If a run fails, or fails to run at all, our team is alerted within an hour. In the great majority of cases the system has already restored itself by the time we look. You typically receive no notification because there is nothing to notice; we keep the rolling log so that we have evidence in the rare case that something needs escalation.
+Behind the scenes, the system reports to a monitoring service every time a scheduled run completes successfully. If a run fails, or fails to run at all, our team is alerted within an hour and steps in to resolve it. You typically receive no notification because there is nothing to notice; we keep the rolling log so that we have evidence in the rare case that something needs escalation.
 
 ### Escalation path
 
@@ -400,9 +395,7 @@ Standard support is Monday through Friday, 9 AM to 6 PM Eastern. Outside those h
 
 **Rollup.** The Friday weekly summary document. One per Kingsway Pharma work week, filed into the same week folder as the meetings it summarizes.
 
-**Scheduled run.** A point in time when the system retrieves new recordings, generates documents, and files them into OneDrive. The four scheduled runs each weekday are 12:30 PM, 5:00 PM, 5:30 PM (Friday rollup only), and 3:00 AM (system update check).
-
-**Self-healing.** The system's ability to automatically restore the previous working version when a fresh update causes a failure. Performed without human intervention; an alert is sent to the Gallant team within roughly an hour.
+**Scheduled run.** A point in time when the system retrieves new recordings, generates documents, and files them into OneDrive. The three scheduled runs each weekday are 12:30 PM, 5:00 PM, and 5:30 PM (Friday rollup only).
 
 **Work week.** Monday through Friday. Used for bucketing Kingsway Pharma meetings into week folders. Recordings made on Saturday or Sunday land in the following Monday's batch and are filed into the work week they belong to.
 
